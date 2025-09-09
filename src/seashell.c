@@ -4,11 +4,12 @@
 # include <stdlib.h>
 # include <string.h>
 
-#define MD4C_USE_UTF8
+//#define MD4C_USE_UTF8
 # include "md4c.h"
 
 # include <curses.h>
 //###################################################################################################
+//Read files
 #define MAX_FILE_SIZE (256 * 1024 * 1024)  // 256 MB
 					   //
 int read_file(const char *filename, char * * out){
@@ -55,6 +56,7 @@ int read_file(const char *filename, char * * out){
 //###################################################################################################
 //Link stack
 #define MAX_STACK 128
+# define FILE_TAG "file://"
 typedef struct link{
 char * href;
 int xs, ys, xe, ye;
@@ -99,6 +101,11 @@ link_arr[link_top].ye=yend;
 
 
 
+}
+
+int prefix(const char *pre, const char *str)
+{
+    return strncmp(pre, str, strlen(pre)) == 0;
 }
 
 //###################################################################################################
@@ -190,6 +197,7 @@ int main(int argc, const char * argv[]){
 	// raw markdown
 	char * raw;
 	int size_raw;
+	//char * previous_path;
 
 	int ch; //ncurses char
 	int x = 0, y = 0;  // cursor position
@@ -207,6 +215,7 @@ int main(int argc, const char * argv[]){
 	// Read file to memory
 	size_raw = read_file(argv[1], &raw);	
 	if(size_raw == 0){
+		free(raw);
 		return 1;
 	}
 
@@ -273,6 +282,21 @@ int main(int argc, const char * argv[]){
 
         		case '\n':
 				//checks links when enter is pressed
+				//check if it's a file link
+				if(prefix(FILE_TAG, link)){
+					//trim string
+					size_t l = strlen(FILE_TAG);
+					// Read file to memory
+					free(raw);
+					size_raw = read_file(link + l, &raw);	
+					if(size_raw == 0){
+						free(raw);
+						return 1;
+					}
+					save_links=1;
+					clear();
+
+				}
 				break;
 			case 'q':
 				end=1;
@@ -330,13 +354,14 @@ int main(int argc, const char * argv[]){
 
     	endwin();               // Cleanup
 				//
-	destroy_link_arr() ;
-
-
 	//printf("%s", raw);
-
-
-	// Parse Markdown
+	
+	//destroys
+	destroy_link_arr();
 	free(raw);
+
+
+
+
 }
 

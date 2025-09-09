@@ -8,7 +8,7 @@
 
 This is a [link](file://./wiki.md) inside Markdown.
 
-This is _underlined_
+This is _underlined_ [link 2 boy](file://./test2.md)
 
 code: `printf("Hello world!\n")`
 
