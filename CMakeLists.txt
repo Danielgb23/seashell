@@ -33,7 +33,7 @@ add_executable(Seashell src/seashell.c)
 
 # Make sure you link your targets with this command. It can also link libraries and
 # even flags, so linking a target that does not exist will not give a configure-time error.
-target_link_libraries(Seashell PRIVATE Md4c)
+target_link_libraries(Seashell PRIVATE Md4c )
 
 # Find ncurses library
 find_package(Curses REQUIRED)
