@@ -24,7 +24,7 @@ set(CMAKE_C_STANDARD 11)
 # Other common choices are STATIC, SHARED, and MODULE
 # Including header files here helps IDEs but is not required.
 # Output libname matches target name, with the usual extensions on your system
-add_library(Md4c md4c/md4c.c md4c/md4c.h)
+add_library(Md4c lib/md4c/md4c.c lib/md4c/md4c.h)
 
 # Link each target with other targets or add options, etc.
 

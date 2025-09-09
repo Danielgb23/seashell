@@ -3,6 +3,8 @@ cmake_install.cmake
 Makefile
 CMakeCache.txt
 
+tags
+
 libMd4c.a
 
 Seashell
