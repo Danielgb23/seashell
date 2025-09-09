@@ -11,32 +11,30 @@
 //###################################################################################################
 //Read files
 #define MAX_FILE_SIZE (256 * 1024 * 1024)  // 256 MB
-					   //
-int read_file(const char *filename, char * * out){
-
+FILE * file_open(const char *filename){
+	// open file
+	FILE* fp;
+	fp=fopen(filename, "r");
+	if (fp == NULL) {
+	    //perror("no such file.");
+	    return NULL;
+	}
 	// File size limit
 	struct stat st;
     	if (stat(filename, &st) != 0) return 0;
 
     	if (st.st_size > MAX_FILE_SIZE) {
         fprintf(stderr, "File too large (%ld bytes)\n", st.st_size);
-        return 0;
+        return NULL;
     }
-
-
-	// open file
-	FILE* fp;
-	fp=fopen(filename, "r");
-	if (fp == NULL) {
-	    perror("no such file.");
-	    return 0;
-	}
-	
+	return fp;
+}					   //
+int read_file(FILE*  fp, char * * out){
+		
 	// find end of file string
 	fseek(fp, 0, SEEK_END);
 	long size = ftell(fp);
 	rewind(fp);
-		
 	//allocate memory
 	char *buffer = malloc (size + 1);
 	if (!buffer) {
@@ -195,7 +193,8 @@ static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size, void *userd
 int main(int argc, const char * argv[]){
 
 	// raw markdown
-	char * raw;
+	char * raw=NULL;
+	const char * previous=NULL;
 	int size_raw;
 	//char * previous_path;
 
@@ -213,10 +212,12 @@ int main(int argc, const char * argv[]){
 	}
 
 	// Read file to memory
-	size_raw = read_file(argv[1], &raw);	
+	previous=argv[1];
+	FILE * fp = file_open(argv[1]);	
+	size_raw = read_file(fp, &raw);
 	if(size_raw == 0){
-		free(raw);
-		return 1;
+		printf("No data in file");
+		return 0;
 	}
 
 	// Md4c parcer pointers to callbacks and flags etc
@@ -283,19 +284,38 @@ int main(int argc, const char * argv[]){
         		case '\n':
 				//checks links when enter is pressed
 				//check if it's a file link
-				if(prefix(FILE_TAG, link)){
+				if(link != NULL && prefix(FILE_TAG, link)){
 					//trim string
 					size_t l = strlen(FILE_TAG);
 					// Read file to memory
-					free(raw);
-					size_raw = read_file(link + l, &raw);	
-					if(size_raw == 0){
-						free(raw);
-						return 1;
-					}
-					save_links=1;
-					clear();
+					FILE * fp = file_open(link+l);	
+					if (fp != NULL){
+						size_raw = read_file(fp, &raw);
+						if(size_raw == 0){
+							//goes back to previous file
+							FILE * fp = file_open(previous);	
+							size_raw = read_file(fp, &raw);
+											}
 
+						else{
+							save_links=1;
+							clear();
+						}
+					}
+					else{
+
+							// Print link at the last line
+					    		move(LINES-1, 0);            // move to last line
+					    		clrtoeol();                 // clear it
+					    		attron(A_REVERSE);          // optional: highlight status bar
+					    		printw("File unavailable");
+					    		attroff(A_REVERSE);
+    							refresh();
+							napms(500);
+
+
+					}
+					//size_raw = read_file(link + l, &raw);	
 				}
 				break;
 			case 'q':
