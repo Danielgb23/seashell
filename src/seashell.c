@@ -28,7 +28,9 @@ FILE * file_open(const char *filename){
         return NULL;
     }
 	return fp;
-}					   //
+}
+
+
 int read_file(FILE*  fp, char * * out){
 		
 	// find end of file string
@@ -47,10 +49,10 @@ int read_file(FILE*  fp, char * * out){
     	fread(buffer, 1, size, fp);
     	buffer[size] = '\0'; // Null terminate
 
-	fclose(fp);
 	*out = buffer;
 	return size;
 }
+
 //###################################################################################################
 //Link stack
 #define MAX_STACK 128
@@ -119,8 +121,10 @@ static int in_strong = 0; // bold
 static int in_under = 0; // under
 static int in_code = 0; // under
 static int save_links = 1;
+static  char * next_screen_pos = NULL;
 
-// parse block
+
+// parse block callbacks
 static int enter_block(MD_BLOCKTYPE type, void *detail, void *userdata) {
     current_block = type;
     if (type == MD_BLOCK_H){
@@ -141,7 +145,7 @@ static int leave_block(MD_BLOCKTYPE type, void *detail, void *userdata) {
 	}
     	return 0;
 }
-//Parse SPAN
+//Parse SPAN callbacks
 static int enter_span(MD_SPANTYPE type, void *detail, void *userdata) {
     if (type == MD_SPAN_A) {
 	in_link = 1;
@@ -164,19 +168,35 @@ static int leave_span(MD_SPANTYPE type, void *detail, void *userdata) {
     return 0;
 }
 
-//PARSE text
-static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size, void *userdata) {
+//PARSE text callbacks
+static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size,  void *userdata) {
+	int x, y; //cursor current position
+	MD_SIZE new_size = size;	
+	char * newline;
+	//Blocks texts from leaving the screen
+	getyx(stdscr, y, x);
+
+	//if reached or passed end of screen
+	if(size >= (LINES-y-1)*COLS){
+	 		return 1;
+	}
+	// if on the last like
+	else if(y == LINES-2  ) {
+		//find new next line in raw or end of string
+		for(newline=(char *)userdata; (*newline) && (*newline) != '\n'; newline++);	
+		next_screen_pos=(*newline)? newline+1: newline; //next character from \n if not end
+	}
 	//titles
 	if (current_block == MD_BLOCK_H) {
 		attron( COLOR_PAIR(TITLE_COLOR) );
-		printw("%.*s", (int)size, text);
+		printw("%.*s", (int)new_size, text);
 		attroff( COLOR_PAIR(TITLE_COLOR));
 	//LINKs
 	} else if (in_link) {
 		int xs, ys, xe, ye;
 		getyx(stdscr, ys, xs);//get start of link
 		attron( COLOR_PAIR(LINK_COLOR)|A_UNDERLINE);
-	 	printw( "%.*s", (int)size, text);
+	 	printw( "%.*s", (int)new_size, text);
 		attroff( COLOR_PAIR(LINK_COLOR)|A_UNDERLINE);
 		getyx(stdscr, ye, xe);//get end of link
 		//saves positions of link into list
@@ -184,7 +204,7 @@ static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size, void *userd
 			add_link_pos(xs,ys, xe,ye);
 	//Everything else
 	} else {
-		printw("%.*s", (int)size, text);
+		printw("%.*s", (int)new_size, text);
 	}
 	return 0;
 }
@@ -193,14 +213,19 @@ static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size, void *userd
 int main(int argc, const char * argv[]){
 
 	// raw markdown
-	char * raw=NULL;
-	const char * previous=NULL;
+	char * raw=NULL; //raw text saved in memory
 	int size_raw;
-	//char * previous_path;
+	
+	const char * screen_prev=NULL; //previous screen position scroll
+	const char * screen_start=NULL;//start of current screen for scroll
 
+	//char * previous_path;
+	const char * previous=NULL;//path of previous file
+				   //
 	int ch; //ncurses char
 	int x = 0, y = 0;  // cursor position
 	char * link; //current link under the cursor
+	int maxy, maxx;//screen size 
 		
 	// End program flag
 	int end= 0 ;
@@ -250,18 +275,23 @@ int main(int argc, const char * argv[]){
 	attron(COLOR_PAIR(1));
 	//wbkgd(stdscr, COLOR_PAIR(1));
 	
+	move(0, 0);   // cursor to origin
 	//render markdown
-	md_parse(raw, size_raw, &parser, NULL);
+	screen_start = raw;
+	screen_prev = raw;
+	md_parse(screen_start, size_raw, &parser, raw);
 	save_links = 0;
 	curs_set(1); // cursor appearing
+		     //
 	move(0, 0);   // cursor to origin
 		      //
     	refresh();
 	while((ch = getch())) {
-	
+		getmaxyx(stdscr, maxy, maxx);
 		// mode notebook
     		switch(ch) {
-
+			case '\e'://ESC
+				break;
 			// MOVEMENT OF THE CURSOR
         		case KEY_UP:
 			case 'k':
@@ -269,7 +299,11 @@ int main(int argc, const char * argv[]){
 				break;
         		case KEY_DOWN:
         		case 'j':
-				if (y < LINES - 1) y++;
+				if (y < maxy - 2) y++;
+				else{
+					if(next_screen_pos)
+						screen_start=next_screen_pos;
+				}
 				break;
         		case KEY_LEFT:
         		case 'h':
@@ -277,7 +311,7 @@ int main(int argc, const char * argv[]){
 				break;
         		case KEY_RIGHT:
         		case 'l':
-				if (x < COLS - 1) x++;
+				if (x < maxx - 1) x++;
 				break;
 
 
@@ -298,22 +332,22 @@ int main(int argc, const char * argv[]){
 											}
 
 						else{
+							screen_start=raw;
+							screen_prev=raw;
 							save_links=1;
 							clear();
 						}
 					}
 					else{
 
-							// Print link at the last line
-					    		move(LINES-1, 0);            // move to last line
-					    		clrtoeol();                 // clear it
-					    		attron(A_REVERSE);          // optional: highlight status bar
-					    		printw("File unavailable");
-					    		attroff(A_REVERSE);
-    							refresh();
-							napms(500);
-
-
+						// Print link at the last line
+					    	move(maxy-1, 0);            // move to last line
+					    	clrtoeol();                 // clear it
+					    	attron(A_REVERSE);          // optional: highlight status bar
+					    	printw("File unavailable");
+					    	attroff(A_REVERSE);
+    						refresh();
+						napms(500);
 					}
 					//size_raw = read_file(link + l, &raw);	
 				}
@@ -323,12 +357,12 @@ int main(int argc, const char * argv[]){
 				break;
 			default:
 				//mvaddch(y, x, ch); // type a character at cursor
-				//if (x < COLS - 1) x++;
+				//if (x < maxx - 1) x++;
     		}
 		if (end) break;// ends the main loop
 			       
 		move(0, 0);   // Cursor at 0 to input screen text
-		md_parse(raw, size_raw, &parser, NULL);//render markdown
+		md_parse(screen_start, size_raw-(screen_start?(screen_start-raw): 0) , &parser, raw);//render markdown
 						       //
 		// checks for links
 		link = NULL;
@@ -361,7 +395,7 @@ int main(int argc, const char * argv[]){
 		}
 						       //
 		// Print link at the last line
-    		move(LINES-1, 0);            // move to last line
+    		move(maxy-1, 0);            // move to last line
     		clrtoeol();                 // clear it
     		attron(A_REVERSE);          // optional: highlight status bar
 		if(link != NULL)
@@ -377,11 +411,8 @@ int main(int argc, const char * argv[]){
 	//printf("%s", raw);
 	
 	//destroys
+	fclose(fp);
 	destroy_link_arr();
 	free(raw);
-
-
-
-
 }
 
