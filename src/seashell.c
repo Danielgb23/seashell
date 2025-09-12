@@ -89,6 +89,7 @@ void destroy_link_arr() {
 	for (int i=0; i<link_top; i++){
          free(link_arr[i].href);
     }
+	link_top=-1;
 }
 
 
@@ -161,7 +162,8 @@ static int enter_span(MD_SPANTYPE type, void *detail, void *userdata) {
 	in_link = 1;
  	MD_SPAN_A_DETAIL *d = (MD_SPAN_A_DETAIL*) detail;
 	//pushes link into list
-    	push_link(d->href.text, d->href.size);
+	if(save_links)
+    		push_link(d->href.text, d->href.size);
     }
     if (type == MD_SPAN_EM) { in_em = 1; attron(A_ITALIC); }
     if (type == MD_SPAN_STRONG) { in_strong = 1; attron( A_BOLD); }
@@ -218,6 +220,7 @@ static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size,  void *user
 		//if reached or passed end of screen
 		if(size >= (LINES-y-1)*COLS){
 			new_size=(LINES-y-1)*COLS;
+			last_line_flag=1;
 		}
 		//If reached the end of the screen
 		if(new_size<=0) {
@@ -270,7 +273,7 @@ int main(int argc, const char * argv[]){
 				   //
 	int ch; //ncurses char
 	int x = 0, y = 0;  // cursor position
-	char * link; //current link under the cursor
+	char * link=NULL; //current link under the cursor
 	int maxy, maxx;//screen size 
 		
 	// End program flag
@@ -329,14 +332,16 @@ int main(int argc, const char * argv[]){
 
 	//find last and first text char rendered from the raw file address in the raw file
 	
+	save_links = 0; // stop saving links
 	find_extr = 1;
 	first_call=1;
 	md_parse(screen_start, size_raw, &parser, NULL);
 	last_char_eff=last_char;
+	find_extr=0;//after first run start displaying text
 
+	save_links = 1; // save links
 	//show first screen
 	move(0, 0);   // cursor to origin
-	find_extr=0;//after first run start displaying text
 	last_line_flag=0;
 	first_call=1;
 	md_parse(screen_start, size_raw, &parser, NULL);
@@ -351,6 +356,7 @@ int main(int argc, const char * argv[]){
 		// mode notebook
     		switch(ch) {
 			case 27://ESC
+				y++;
 				break;
 			// MOVEMENT OF THE CURSOR
         		case KEY_UP:
@@ -361,7 +367,9 @@ int main(int argc, const char * argv[]){
 					for(newline=screen_start-1; newline>raw && (*newline) != '\n'; newline--);	
 					//next character from \n if not end
 					screen_start=newline>raw? newline-1:raw; 
+					destroy_link_arr();
 					save_links=1;//to find again the links
+					clrtoeol();
 
 				}
 				break;
@@ -373,7 +381,9 @@ int main(int argc, const char * argv[]){
 					for(newline=screen_start+1; (*newline) && (*newline) != '\n'; newline++);	
 					//next character from \n if not end
 					screen_start= newline+1; 
+					destroy_link_arr();
 					save_links=1;//to find again the links
+					clrtoeol();
 
 				}
 				break;
@@ -404,8 +414,20 @@ int main(int argc, const char * argv[]){
 											}
 
 						else{
+
+
 							screen_start=raw;
 							screen_prev=raw;
+							//find last and first text char 
+							//rendered from the raw file address in the raw file
+							find_extr = 1;
+							first_call=1;
+							md_parse(screen_start, size_raw, &parser, NULL);
+							last_char_eff=last_char;
+							find_extr=0;//after first run start displaying text
+
+							//reset links
+							destroy_link_arr();
 							save_links=1;
 							clear();
 						}
@@ -432,21 +454,27 @@ int main(int argc, const char * argv[]){
 				//if (x < maxx - 1) x++;
     		}
 		if (end) break;// ends the main loop
-			       
+	
+		// ensure clean attribute state for this frame
+		attrset(A_NORMAL);
+		erase();               // removes leftover attributes / chars
+		// if you want a default color background, apply it now:
+		attron(COLOR_PAIR(1));
 		move(0, 0);   // Cursor at 0 to input screen text
 			      
 		last_line_flag=0;
 		first_call=1;
 		md_parse(
-				screen_start,
-				size_raw-(screen_start?(screen_start-raw): 0),
-				&parser,
-				NULL
-			);		//render markdown
+			screen_start,
+			size_raw-(screen_start?(screen_start-raw): 0),
+			&parser,
+			NULL
+		);		//render markdown
+		save_links=0;
 
 		// checks for links
 		link = NULL;
-		for(int i=0; i<link_top; i++){
+		for(int i=0; i<link_top+1; i++){
 			//One line link
 			if( link_arr[i].ye == link_arr[i].ys && y == link_arr[i].ys)		
 			{
