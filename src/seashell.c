@@ -109,6 +109,40 @@ int prefix(const char *pre, const char *str)
     return strncmp(pre, str, strlen(pre)) == 0;
 }
 
+
+char * checks_links(int x,int  y){
+	// checks for links
+	char * link = NULL;
+	for(int i=0; i<link_top+1; i++){
+		//One line link
+		if( link_arr[i].ye == link_arr[i].ys && y == link_arr[i].ys)		
+		{
+			// Cursor inside the link
+			if (x <= link_arr[i].xe-1 && x >= link_arr[i].xs )
+				link=link_arr[i].href;
+		}
+		else{
+			//first line of multiline link
+			if (y==link_arr[i].ys){
+				if(x >= link_arr[i].xs )
+					link=link_arr[i].href;
+				
+			}
+			//last line of multiline link
+			else if (y==link_arr[i].ye){
+				if(x <= link_arr[i].xe-1 )
+					link=link_arr[i].href;
+			}
+			//middle lines of multiline link
+			else if (y>=link_arr[i].ys && y<=link_arr[i].ye){
+					link=link_arr[i].href;
+			}
+			
+		}
+	}
+	return link;
+
+}
 //###################################################################################################
 // Md4c + Ncurses
 # define CODE_COLOR 2
@@ -259,6 +293,8 @@ static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size,  void *user
 
 //###################################################################################################
 int main(int argc, const char * argv[]){
+	
+
 
 	// raw markdown
 	char * raw=NULL; //raw text saved in memory
@@ -275,7 +311,9 @@ int main(int argc, const char * argv[]){
 	int x = 0, y = 0;  // cursor position
 	char * link=NULL; //current link under the cursor
 	int maxy, maxx;//screen size 
-		
+	MEVENT event;
+
+
 	// End program flag
 	int end= 0 ;
 	
@@ -312,6 +350,7 @@ int main(int argc, const char * argv[]){
 	cbreak();               // Disable line buffering
 	noecho();               // Don't echo typed chars
 	keypad(stdscr, TRUE);   // Enable arrow keys
+	mousemask(BUTTON1_CLICKED | BUTTON3_CLICKED | REPORT_MOUSE_POSITION, NULL);
 	start_color();          // Enable colors
 	use_default_colors();   // Use terminal color setup
 	
@@ -351,10 +390,12 @@ int main(int argc, const char * argv[]){
 	move(0, 0);   // cursor to origin
     	refresh();
 
-	while((ch = getch())) {
+	timeout(100); // don't block forever
+	while((ch = getch())!= 'q') {
 		getmaxyx(stdscr, maxy, maxx);
 		// mode notebook
     		switch(ch) {
+		
 			case 27://ESC
 				y++;
 				break;
@@ -396,7 +437,18 @@ int main(int argc, const char * argv[]){
 				if (x < maxx - 1) x++;
 				break;
 
+			case KEY_MOUSE:
+			        if (getmouse(&event) == OK) {
+			            if (event.bstate & BUTTON1_CLICKED) {
+			                // Move cursor to clicked position
+			                y=event.y;
+					x=event.x;
+			            }
+			        }
 
+				link=checks_links(x, y);
+				if(link==NULL)
+			        	break;
         		case '\n':
 				//checks links when enter is pressed
 				//check if it's a file link
@@ -441,20 +493,18 @@ int main(int argc, const char * argv[]){
 					    	printw("File unavailable");
 					    	attroff(A_REVERSE);
     						refresh();
-						napms(500);
+						napms(800);
 					}
 					//size_raw = read_file(link + l, &raw);	
 				}
-				break;
-			case 'q':
-				end=1;
 				break;
 			default:
 				//mvaddch(y, x, ch); // type a character at cursor
 				//if (x < maxx - 1) x++;
     		}
-		if (end) break;// ends the main loop
-	
+
+
+		//RENDER ###########################################################################
 		// ensure clean attribute state for this frame
 		attrset(A_NORMAL);
 		erase();               // removes leftover attributes / chars
@@ -472,36 +522,10 @@ int main(int argc, const char * argv[]){
 		);		//render markdown
 		save_links=0;
 
-		// checks for links
-		link = NULL;
-		for(int i=0; i<link_top+1; i++){
-			//One line link
-			if( link_arr[i].ye == link_arr[i].ys && y == link_arr[i].ys)		
-			{
-				// Cursor inside the link
-				if (x <= link_arr[i].xe-1 && x >= link_arr[i].xs )
-					link=link_arr[i].href;
-			}
-			else{
-				//first line of multiline link
-				if (y==link_arr[i].ys){
-					if(x >= link_arr[i].xs )
-						link=link_arr[i].href;
-					
-				}
-				//last line of multiline link
-				else if (y==link_arr[i].ye){
-					if(x <= link_arr[i].xe-1 )
-						link=link_arr[i].href;
-				}
-				//middle lines of multiline link
-				else if (y>=link_arr[i].ys && y<=link_arr[i].ye){
-						link=link_arr[i].href;
-				}
-				
-			}
-		}
-						       //
+		//RENDER ###########################################################################
+	
+		link=checks_links(x, y);
+							     
 		// Print link at the last line
     		move(maxy-1, 0);            // move to last line
     		clrtoeol();                 // clear it
