@@ -6,9 +6,9 @@
 
 *About*
 
-This is a [link](file://./wiki.md) inside Markdown.
+This is a [link](file://./tests/wiki.md) inside Markdown.
 
-This is _underlined_ [link 2 boy](file://./test2.md)
+This is _underlined_ [link 2 boy](file://./tests/test2.md)
 
 code: `printf("Hello world!\n")`
 

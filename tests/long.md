@@ -26,7 +26,7 @@ Loren ipsum
 Lorem 
 
 # Title about things
-[Link back](file://./test.md)
+[Link back](file://./tests/test.md)
 People
 
 Loren ipsum
@@ -50,12 +50,12 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 
 ## Subtitle
 
-[Link back](file://./test.md)
+[Link back](file://./tests/test.md)
 Lorem 
 
 # Title about things
 
-People [link](file://./wiki.md) 
+People [link](file://./tests/wiki.md) 
 
 Loren ipsum
 
@@ -69,12 +69,12 @@ Lorem
 
 ## Subtitle
 
-[Link back](file://./test.md)
+[Link back](file://./tests/test.md)
 Lorem 
 
 # Title about things
 
-People [link](file://./wiki.md) 
+People [link](file://./tests/wiki.md) 
 
 Loren ipsum
 
@@ -88,12 +88,12 @@ Lorem
 
 ## Subtitle
 
-[Link back](file://./test.md)
+[Link back](file://./tests/test.md)
 Lorem 
 
 # Title about things
 
-People [link](file://./wiki.md) 
+People [link](file://./tests/wiki.md) 
 
 Loren ipsum
 
