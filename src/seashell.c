@@ -123,11 +123,14 @@ static int in_under = 0; // under
 static int in_code = 0; // under
 static int save_links = 1;
 static int last_line_flag = 0;
-static int find_end = 1;
+static int find_extr = 1;
+static int first_call = 1;
 
 static int last_in_screen_flag=0;
+static int beggining_in_screen_flag=0;
 static char * last_char=NULL;
 static char * last_char_eff=NULL;
+static char * first_char_eff=NULL;
 
 // parse block callbacks
 static int enter_block(MD_BLOCKTYPE type, void *detail, void *userdata) {
@@ -138,11 +141,8 @@ static int enter_block(MD_BLOCKTYPE type, void *detail, void *userdata) {
 	if(d->level ==1) attron( A_BOLD | A_UNDERLINE);
 	if(d->level ==2) attron( A_BOLD );
     }
-    int a =1;
-	if(last_line_flag){
+	if(last_line_flag)
 		return 1;
-	a++;
-	}
     return 0;
 }
 static int leave_block(MD_BLOCKTYPE type, void *detail, void *userdata) {
@@ -168,10 +168,8 @@ static int enter_span(MD_SPANTYPE type, void *detail, void *userdata) {
     if (type == MD_SPAN_U) { in_under = 1; attron(A_UNDERLINE); }
     if (type == MD_SPAN_CODE) { in_code = 1; attron(COLOR_PAIR(CODE_COLOR)| A_ITALIC); }
 
-    int a =1;
 	if(last_line_flag)
 		return 1;
-	a++;
     return 0;
 }
 static int leave_span(MD_SPANTYPE type, void *detail, void *userdata) {
@@ -193,15 +191,28 @@ static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size,  void *user
 	//Last char in the callback, the effective last char is this variable
 	//after the md_parse call is done
 	last_char=(char*)text+size-1;	
-
+	
+	//find beggining
+	if(find_extr && first_call){
+		first_char_eff = (char *)text;
+		first_call=0;
+	}
 	
 	//Blocks texts from leaving the screen
-	if(!find_end){
+	if(!find_extr ){
 
-		//last character possible rendered from file is or is not in the screen
+		//last character possible rendered from file is (flag=1) or is not in the screen
 		last_in_screen_flag=0;
 		if(last_char_eff<=last_char)
 			last_in_screen_flag=1;
+
+		//first character possible rendered from file is or is not in the screen
+		if(first_call){
+			beggining_in_screen_flag=0;
+			if(first_char_eff>=text)
+				beggining_in_screen_flag=1;
+			first_call=0;
+		}
 
 		getyx(stdscr, y, x);
 		//if reached or passed end of screen
@@ -316,22 +327,25 @@ int main(int argc, const char * argv[]){
 	screen_start = raw;
 	screen_prev = raw;
 
-	//find last text char rendered from the raw file address in the raw file
+	//find last and first text char rendered from the raw file address in the raw file
+	
+	find_extr = 1;
+	first_call=1;
 	md_parse(screen_start, size_raw, &parser, NULL);
 	last_char_eff=last_char;
 
 	//show first screen
 	move(0, 0);   // cursor to origin
-	find_end=0;//after first run start displaying text
+	find_extr=0;//after first run start displaying text
 	last_line_flag=0;
+	first_call=1;
 	md_parse(screen_start, size_raw, &parser, NULL);
 
 	save_links = 0; // stop saving links
 	curs_set(1); // cursor appearing
-		     //
 	move(0, 0);   // cursor to origin
-		      //
     	refresh();
+
 	while((ch = getch())) {
 		getmaxyx(stdscr, maxy, maxx);
 		// mode notebook
@@ -342,6 +356,14 @@ int main(int argc, const char * argv[]){
         		case KEY_UP:
 			case 'k':
 				if (y > 0) y--;
+				else if(!beggining_in_screen_flag){
+					//find new next line in raw or end of string
+					for(newline=screen_start-1; newline>raw && (*newline) != '\n'; newline--);	
+					//next character from \n if not end
+					screen_start=newline>raw? newline-1:raw; 
+					save_links=1;//to find again the links
+
+				}
 				break;
         		case KEY_DOWN:
         		case 'j':
@@ -414,6 +436,7 @@ int main(int argc, const char * argv[]){
 		move(0, 0);   // Cursor at 0 to input screen text
 			      
 		last_line_flag=0;
+		first_call=1;
 		md_parse(
 				screen_start,
 				size_raw-(screen_start?(screen_start-raw): 0),
