@@ -2,13 +2,13 @@
 
 ## Subtitle
 
-**TEST**
+**TEST bold** TEST not bold
 
-*About*
+*Italic and **italic bold*** **TEST bold**
 
 This is a [link](file://./tests/wiki.md) inside Markdown.
 
-This is _underlined_ [link 2 boy](file://./tests/test2.md)
+This is **bold** this is _underlined_ and [broken link 2 boy](file://./tests/test2.md)
 
 code: `printf("Hello world!\n")`
 
