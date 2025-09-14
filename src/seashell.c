@@ -68,46 +68,6 @@ char *strndup(const char *s, size_t n) {
     copy[len] = '\0';
     return copy;
 }
-//LINKS ############################################################################################
-//Link stack
-# define FILE_TAG "file://"
-int prefix(const char *pre, const char *str)
-{
-    return strncmp(pre, str, strlen(pre)) == 0;
-}
-
-
-int check_link(int xs,int  ys, int xe, int ye,  int cursorx, int cursory){
-	// checks for links
-		//One line link
-		if( ye == ys && cursory == ys)		
-		{
-			// Cursor inside the link
-			if (cursorx <= xe-1 && cursorx >= xs )
-				return 1;
-		}
-		else{
-			//first line of multiline link
-			if (cursory==ys){
-				if(cursorx >= xs )
-					return 1;
-				
-			}
-			//last line of multiline link
-			else if (cursory==ye){
-				if(cursorx <= xe-1 )
-					return 1;
-			}
-			//middle lines of multiline link
-			else if (cursory>=ys && cursory<=ye){
-				return 1;
-			}
-			
-		}
-	return 0;
-
-}
-
 // TOKEN DATA STRUCTURE #################################################################
 
 //Commands for renderer tokens
@@ -127,7 +87,7 @@ enum Cmd {
 typedef struct token{
 	enum Cmd cmd; //command id for the renderer
 	char * text; //text address to be rendered or link href if link command
-	char size; //size of text or link
+	size_t size; //size of text or link
 	char start; //bool of start or end token
 }Token;
 
@@ -236,7 +196,7 @@ static int leave_span(MD_SPANTYPE type, void *detail, void *userdata) {
 
 //PARSE text callbacks
 static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size,  void *userdata) {
-	tvec_push(& tvec,TEXT,(char*) text, size, 0);	
+	tvec_push(& tvec,TEXT,(char*) text,(size_t) size, 0);	
 	return 0;
 }
 
@@ -261,14 +221,88 @@ static char * first_char_eff=NULL;
 # define LINK_COLOR 4
 
 
-int render(Tvector *tvec,int screen_start,int cursorx, int cursory, char * * link, size_t * link_size){
 
+int check_link(int xs,int  ys, int xe, int ye,  int cursorx, int cursory){
+	// checks for links
+		//One line link
+		if( ye == ys && cursory == ys)		
+		{
+			// Cursor inside the link
+			if (cursorx <= xe-1 && cursorx >= xs )
+				return 1;
+		}
+		else{
+			//first line of multiline link
+			if (cursory==ys){
+				if(cursorx >= xs )
+					return 1;
+				
+			}
+			//last line of multiline link
+			else if (cursory==ye){
+				if(cursorx <= xe-1 )
+					return 1;
+			}
+			//middle lines of multiline link
+			else if (cursory>=ys && cursory<=ye){
+				return 1;
+			}
+			
+		}
+	return 0;
+
+}
+
+
+//next line
+int next_line(Tvector tvec, int start){
+	int i;
+	for(i=start+1; i<tvec.size; i++)
+		if(tvec.tokens[i].cmd == NL )
+			break;
+return i;
+}
+
+//previous line
+int prev_line(Tvector tvec, int start){
+	int i;
+	for(i=start-1; i>=0; i--)
+		if(tvec.tokens[i].cmd == NL  )
+			break;
+return i;
+}
+
+//finds start of token vector
+int find_beggining(Tvector tvec){
+	int i;
+	for(i=0; i<tvec.size; i++)
+		if(tvec.tokens[i].cmd == NL ||tvec.tokens->cmd == TEXT )
+			break;
+	return i;
+
+}
+
+//finds start of token vector
+int find_end(Tvector tvec){
+	int i;
+	for(i=tvec.size-1; i>=0; i--)
+		if(tvec.tokens[i].cmd == NL ||tvec.tokens->cmd == TEXT )
+			break;
+	return i;
+
+}
+
+
+int render(Tvector *tvec,int screen_start,int cursorx, int cursory, char * * link, size_t * link_size){
 
 	int x, y,xe, ye, maxy, maxx;//screen size 
 	getmaxyx(stdscr, maxy, maxx);
 
+	int start= find_beggining(*tvec);
+	int end= find_end(*tvec);
+
 	size_t new_size=0;
-	 int   index_link=0;
+	 int   index_link=-1;
 	//COLORS of each enviroment
 	init_pair(DEFAULT_COLOR, -1, -1);   // default terminal
 	init_pair(CODE_COLOR, COLOR_GREEN, COLOR_YELLOW) ;
@@ -278,6 +312,9 @@ int render(Tvector *tvec,int screen_start,int cursorx, int cursory, char * * lin
 	*link=NULL;
 	*link_size=0;
 
+	beggining_in_screen_flag=0;
+	last_in_screen_flag=0;
+
 	// ensure clean attribute state for this frame
 	attrset(A_NORMAL);
 	erase();               // removes leftover attributes / chars
@@ -285,18 +322,26 @@ int render(Tvector *tvec,int screen_start,int cursorx, int cursory, char * * lin
 	attron(COLOR_PAIR(1));
 	move(0, 0);   // Cursor at 0 to input screen text
 
-	char finish=1;
+	char finish=0;
 	int i=screen_start;
-	while(finish){
+	while(!finish){
 		if(i>= tvec->size)
 			break;
 		switch(tvec->tokens[i].cmd){
 			case NL: // newline
 			printw("\n");
+			if(tvec->tokens[start].cmd==NL || tvec->tokens[end].cmd==NL){
+				if(start==i )
+					beggining_in_screen_flag=1;
+				if(end==i)
+					last_in_screen_flag=1;
+				}
 				break;
 			case BOLD:
+				//start
 				if(tvec->tokens[i].start)
 					attron(A_BOLD);
+				//end
 				else
 					attroff(A_BOLD);
 
@@ -338,21 +383,32 @@ int render(Tvector *tvec,int screen_start,int cursorx, int cursory, char * * lin
 					attroff( COLOR_PAIR(CODE_COLOR));
 				break;
 			case TEXT:
+				
+			if(tvec->tokens[start].cmd==TEXT)
+				if(start==i)
+					beggining_in_screen_flag=1;
+
 				new_size=tvec->tokens[i].size;
 				getyx(stdscr, y, x);
-				//if reached or passed end of screen
+				//if text can reach or pass end of screen
 				if(new_size >= (maxy-y-1)*maxx){
-					new_size=(maxy-y-1)*maxx;
+					new_size = (maxy-y-1)*maxx;
 				}
 				//If reached the end of the screen
-				if(new_size<=0) {
-					finish=0;
+				if(new_size <= 0) {
+					finish=1;
 					break;
 				}
 				//print text
-				printw("%.*s",new_size,tvec->tokens[i].text );
+				printw("%.*s",(int)new_size,tvec->tokens[i].text );
+
+				if(tvec->tokens[end].cmd==TEXT)
+					if(end==i)
+						last_in_screen_flag=1;
 				//if text was flagged as link (indexlink!=-1)
 				if(index_link>=0){
+					//gets end of link text in screen and checks if cursor
+					//is over it
 					getyx(stdscr, ye, xe);
 					if(check_link(x,y,xe,ye, cursorx, cursory)){
 
@@ -381,9 +437,15 @@ int render(Tvector *tvec,int screen_start,int cursorx, int cursory, char * * lin
 
    	 move(cursory, cursorx);   // move cursor to user position
     	refresh();
+	attrset(A_NORMAL);
 	return 0;
 }
 //MAIN #############################################################################################
+# define FILE_TAG "file://"
+int prefix(const char *pre, const char *str)
+{
+    return strncmp(pre, str, strlen(pre)) == 0;
+}
 int main(int argc, const char * argv[]){
 	// raw markdown
 	char * raw=NULL; //raw text saved in memory
@@ -392,7 +454,7 @@ int main(int argc, const char * argv[]){
 	tvec_init(&tvec);
 	
 
-	char * screen_start=NULL;//start of current screen for scroll
+	int screen_start=0;//start of current screen for scroll
 	char * newline;//newline position
 
 	//char * previous_path;
@@ -419,7 +481,7 @@ int main(int argc, const char * argv[]){
 	FILE * fp = file_open(argv[1]);	
 	size_raw = read_file(fp, &raw);
 	if(size_raw == 0){
-		printf("No data in file or file non existant");
+		printf("No data in file or file non existant\n");
 		return 0;
 	}
 
@@ -442,20 +504,20 @@ int main(int argc, const char * argv[]){
 	md_parse(raw, size_raw, &parser, NULL);
 
 
-
 	initscr();              // Start ncurses
 	cbreak();               // Disable line buffering
 	noecho();               // Don't echo typed chars
 	keypad(stdscr, TRUE);   // Enable arrow keys
-	mousemask(BUTTON1_CLICKED | BUTTON3_CLICKED | REPORT_MOUSE_POSITION, NULL);
+	mousemask(BUTTON1_CLICKED | BUTTON3_CLICKED| BUTTON4_PRESSED| BUTTON5_PRESSED| REPORT_MOUSE_POSITION, NULL);
 	start_color();          // Enable colors
 	use_default_colors();   // Use terminal color setup
+
 	
 	render(&tvec,0,x,y, &link,  &link_size);
 
 
 
-	timeout(100); // don't block forever
+	//timeout(100); // don't block forever
 	while((ch = getch())!= 'q') {
 		getmaxyx(stdscr, maxy, maxx);
 		// mode notebook
@@ -470,16 +532,15 @@ int main(int argc, const char * argv[]){
 				if (y > 0) y--;
 				else if(!beggining_in_screen_flag){
 					//find new next line in raw or end of string
-					clrtoeol();
-
+					screen_start=prev_line(tvec, screen_start);
 				}
 				break;
         		case KEY_DOWN:
         		case 'j':
 				if (y < maxy - 2) y++;
 				else if(!last_in_screen_flag){
-					clrtoeol();
-
+					//find previous new line in raw or end of string
+					screen_start=next_line(tvec, screen_start);
 				}
 				break;
         		case KEY_LEFT:
@@ -498,9 +559,25 @@ int main(int argc, const char * argv[]){
 			                y=event.y;
 					x=event.x;
 			            }
-			        }
+				    if(event.bstate & BUTTON4_PRESSED){
+					if (y > 0) y--;
+					else if(!beggining_in_screen_flag){
+						//find new next line in raw or end of string
+						screen_start=prev_line(tvec, screen_start);
+					}
+					break;
+				}
+				    if(event.bstate & BUTTON5_PRESSED){
+					if (y < maxy - 2) y++;
+					else if(!last_in_screen_flag){
+						//find previous new line in raw or end of string
+						screen_start=next_line(tvec, screen_start);
+					}
 
-				render(&tvec,0,x,y, &link,  &link_size);
+					break;
+					}
+				render(&tvec,screen_start,x,y, &link,  &link_size);
+			        }
 
 				if(link==NULL)
 			        	break;
@@ -523,13 +600,11 @@ int main(int argc, const char * argv[]){
 											}
 
 						else{
-
-
 							//find last and first text char 
 							//rendered from the raw file address in the raw file
 							tvec_free(&tvec);
 							md_parse(raw, size_raw, &parser, NULL);
-
+							screen_start=0;
 							clear();
 						}
 					}
@@ -537,6 +612,7 @@ int main(int argc, const char * argv[]){
 
 						// Print link at the last line
 					    	move(maxy-1, 0);            // move to last line
+						attrset(A_NORMAL);
 					    	clrtoeol();                 // clear it
 					    	attron(A_REVERSE);          // optional: highlight status bar
 					    	printw("File unavailable");
@@ -556,16 +632,17 @@ int main(int argc, const char * argv[]){
 
 		//RENDER ###########################################################################
 			      
-		render(&tvec,0,x,y, &link,  &link_size);
+		render(&tvec,screen_start,x,y, &link,  &link_size);
 
 
 		// Print link at the last line
-	   	 move(maxy-1, 0);            // move to last line
-	   	 clrtoeol();                 // clear it
-	   	 attron(A_REVERSE);          // optional: highlight status bar
-	   	 if(link != NULL)
-	   	 	printw("%.*s",link_size, link);
-	   	 attroff(A_REVERSE);
+	   	move(maxy-1, 0);            // move to last line
+		attrset(A_NORMAL);
+	   	clrtoeol();                 // clear it
+	   	attron(A_REVERSE);          // optional: highlight status bar
+	   	if(link != NULL)
+	   		printw("%.*s",(int)link_size, link);
+	   	attroff(A_REVERSE);
 	
 							     
    	 	move(y, x);  // move cursor to user position
