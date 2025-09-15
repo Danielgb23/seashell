@@ -140,85 +140,147 @@ void tvec_free(Tvector *vec) {
 
 
 static int current_block = 0;
-Tvector tvec;
 
 // parse block callbacks
 static int enter_block(MD_BLOCKTYPE type, void *detail, void *userdata) {
     current_block = type;
+    Tvector * tvec=(Tvector *)userdata;
     if (type == MD_BLOCK_H){
 
-	tvec_push(& tvec,NL,(char*) NULL, 0, 1);	//adds newline
+	tvec_push( tvec,NL,(char*) NULL, 0, 1);	//adds newline
 	MD_BLOCK_H_DETAIL *d = (MD_BLOCK_H_DETAIL *)detail;
-	if(d->level ==1) tvec_push(& tvec,HEADER1,(char*) NULL, 0, 1);	
-	else if(d->level ==2) tvec_push(& tvec,HEADER2,(char*) NULL, 0, 1);
-	else tvec_push(& tvec,HEADERPLUS,(char*) NULL, 0, 1);
+	if(d->level ==1) tvec_push( tvec,HEADER1,(char*) NULL, 0, 1);	
+	else if(d->level ==2) tvec_push( tvec,HEADER2,(char*) NULL, 0, 1);
+	else tvec_push( tvec,HEADERPLUS,(char*) NULL, 0, 1);
     }
     return 0;
 }
 static int leave_block(MD_BLOCKTYPE type, void *detail, void *userdata) {
+    	Tvector * tvec=(Tvector *)userdata;
     	if (type == MD_BLOCK_H || type == MD_BLOCK_P)
-		tvec_push(& tvec,NL,(char*) NULL, 0, 1);	//adds newline
+		tvec_push(tvec,NL,(char*) NULL, 0, 1);	//adds newline
 
 	if (type == MD_BLOCK_H){
 		MD_BLOCK_H_DETAIL *d = (MD_BLOCK_H_DETAIL *)detail;
-		if(d->level ==1) tvec_push(& tvec,HEADER1,(char*) NULL, 0, 0);	
-		else if(d->level ==2) tvec_push(& tvec,HEADER2,(char*) NULL, 0, 0);
-		else tvec_push(& tvec,HEADERPLUS,(char*) NULL, 0, 0);
+		if(d->level ==1) tvec_push(tvec,HEADER1,(char*) NULL, 0, 0);	
+		else if(d->level ==2) tvec_push(tvec,HEADER2,(char*) NULL, 0, 0);
+		else tvec_push(tvec,HEADERPLUS,(char*) NULL, 0, 0);
 	}
     	return 0;
 }
 //Parse SPAN callbacks
 static int enter_span(MD_SPANTYPE type, void *detail, void *userdata) {
+    	Tvector * tvec=(Tvector *)userdata;
     if (type == MD_SPAN_A) {
  	MD_SPAN_A_DETAIL *d = (MD_SPAN_A_DETAIL*) detail;
-    	tvec_push(& tvec,LINK,(char*) d->href.text, d->href.size, 1);
+    	tvec_push(tvec,LINK,(char*) d->href.text, d->href.size, 1);
     }
-    if (type == MD_SPAN_EM) tvec_push(& tvec,ITALIC,(char*) NULL, 0, 1);
-    if (type == MD_SPAN_STRONG) tvec_push(& tvec,BOLD,(char*) NULL, 0, 1);
-    if (type == MD_SPAN_U) tvec_push(& tvec,UNDER,(char*) NULL, 0, 1);
-    if (type == MD_SPAN_CODE) tvec_push(& tvec,CODE,(char*) NULL, 0, 1);
+    if (type == MD_SPAN_EM) tvec_push(tvec,ITALIC,(char*) NULL, 0, 1);
+    if (type == MD_SPAN_STRONG) tvec_push(tvec,BOLD,(char*) NULL, 0, 1);
+    if (type == MD_SPAN_U) tvec_push(tvec,UNDER,(char*) NULL, 0, 1);
+    if (type == MD_SPAN_CODE) tvec_push(tvec,CODE,(char*) NULL, 0, 1);
 
     return 0;
 }
 static int leave_span(MD_SPANTYPE type, void *detail, void *userdata) {
+    	Tvector * tvec=(Tvector *)userdata;
 
     if (type == MD_SPAN_A) {
  	MD_SPAN_A_DETAIL *d = (MD_SPAN_A_DETAIL*) detail;
-    	tvec_push(& tvec,LINK,(char*) d->href.text, d->href.size, 0);
+    	tvec_push(tvec,LINK,(char*) d->href.text, d->href.size, 0);
     }
-    if (type == MD_SPAN_EM) tvec_push(& tvec,ITALIC,(char*) NULL, 0, 0);
-    if (type == MD_SPAN_STRONG) tvec_push(& tvec,BOLD,(char*) NULL, 0, 0);
-    if (type == MD_SPAN_U) tvec_push(& tvec,UNDER,(char*) NULL, 0, 0);
-    if (type == MD_SPAN_CODE) tvec_push(& tvec,CODE,(char*) NULL, 0, 0);
+    if (type == MD_SPAN_EM) tvec_push(tvec,ITALIC,(char*) NULL, 0, 0);
+    if (type == MD_SPAN_STRONG) tvec_push(tvec,BOLD,(char*) NULL, 0, 0);
+    if (type == MD_SPAN_U) tvec_push(tvec,UNDER,(char*) NULL, 0, 0);
+    if (type == MD_SPAN_CODE) tvec_push(tvec,CODE,(char*) NULL, 0, 0);
 
     return 0;
 }
 
 //PARSE text callbacks
 static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size,  void *userdata) {
-	tvec_push(& tvec,TEXT,(char*) text,(size_t) size, 0);	
+    	Tvector * tvec=(Tvector *)userdata;
+	tvec_push(tvec,TEXT,(char*) text,(size_t) size, 0);	
 	return 0;
 }
 
 // RENDER ###############################################################################
 //put in struct and put in userdata as pointers declared in main
-static int save_links = 1;
-static int last_line_flag = 0;
-static int find_extr = 1;
-static int first_call = 1;
 
 static int last_in_screen_flag=0;
 static int beggining_in_screen_flag=0;
-static char * last_char=NULL;
-static char * last_char_eff=NULL;
-static char * first_char_eff=NULL;
-
 
 //Ncurses colors
 # define DEFAULT_COLOR 1
 # define CODE_COLOR 2
 # define TITLE_COLOR 3
 # define LINK_COLOR 4
+
+typedef struct init{
+int screen_start;
+int start;
+int end;
+int * text_positions;
+int * line_counts;
+Tvector tvec;
+}Init_render;
+
+
+Init_render* get_ptr_vars(){
+	static Init_render vars={0,0,0,NULL,NULL, {NULL,0,0}};
+	return &vars;
+}
+
+//initializes renderer or returns initial variables
+void render_init(char* raw, int size_raw){
+	Init_render * vars=get_ptr_vars();
+
+	// Md4c parcer pointers to callbacks and flags etc
+	MD_PARSER parser = {
+       		0,
+       		MD_FLAG_COLLAPSEWHITESPACE | MD_FLAG_UNDERLINE, // flags
+       		enter_block,
+       		leave_block,
+       		enter_span,
+       		leave_span,
+       		text,
+       		NULL,   // debug callback
+       		NULL    // userdata
+    	};
+
+
+	tvec_init(&(vars->tvec));
+
+	md_parse(raw, size_raw, &parser, &(vars->tvec));
+
+	//reinitializes parsed IR
+		//gives pointer address of static var
+
+		int i, start_flag=0, count=0;
+		for(i=0;i<vars->tvec.size ; i++)
+			if(vars->tvec.tokens[i].cmd == NL ||vars->tvec.tokens[i].cmd == TEXT ){
+				//first NL or TEXT
+				if(start_flag==1){
+				vars->start=i;
+				   start_flag=0;
+				}
+	
+				//last NL or TEXT
+				vars->end=i;
+				//co->nts total NLs or TEXTs
+				count++;
+			}
+
+
+
+
+}
+void destroy_renderer(){
+	Init_render* vars=get_ptr_vars();
+	tvec_free(&(vars->tvec));
+}
+
+
 
 
 
@@ -255,51 +317,52 @@ int check_link(int xs,int  ys, int xe, int ye,  int cursorx, int cursory){
 
 
 //next line
-int next_line(Tvector tvec, int start){
+void next_line(){
+	Init_render* vars=get_ptr_vars();
+	int start=vars->screen_start;
+	Tvector tvec=vars->tvec;
 	int i;
 	for(i=start+1; i<tvec.size; i++)
 		if(tvec.tokens[i].cmd == NL )
 			break;
-return i;
+	vars->screen_start=i;
 }
 
 //previous line
-int prev_line(Tvector tvec, int start){
+void prev_line( ){
+	Init_render* vars=get_ptr_vars();
+	int start=vars->screen_start;
+	Tvector tvec=vars->tvec;
 	int i;
 	for(i=start-1; i>=0; i--)
 		if(tvec.tokens[i].cmd == NL  )
 			break;
-return i;
+
+	vars->screen_start=i;
 }
 
-//finds start of token vector
-int find_beggining(Tvector tvec){
-	int i;
-	for(i=0; i<tvec.size; i++)
-		if(tvec.tokens[i].cmd == NL ||tvec.tokens->cmd == TEXT )
-			break;
-	return i;
-
+void scroll_down( ){
+	if(!last_in_screen_flag){
+		//find previous new line in raw or end of string
+		next_line();
+	}
 }
-
-//finds start of token vector
-int find_end(Tvector tvec){
-	int i;
-	for(i=tvec.size-1; i>=0; i--)
-		if(tvec.tokens[i].cmd == NL ||tvec.tokens->cmd == TEXT )
-			break;
-	return i;
+void scroll_up(){
+	if(!beggining_in_screen_flag){
+		//find new next line in raw or end of string
+		prev_line();
+	}
 
 }
 
-
-int render(Tvector *tvec,int screen_start,int cursorx, int cursory, char * * link, size_t * link_size){
+int render(int cursorx, int cursory, char * * link, size_t * link_size){
 
 	int x, y,xe, ye, maxy, maxx;//screen size 
 	getmaxyx(stdscr, maxy, maxx);
 
-	int start= find_beggining(*tvec);
-	int end= find_end(*tvec);
+	Init_render* vars=get_ptr_vars();
+	int start=vars->start, end=vars->end, screen_start=vars->screen_start;
+	Tvector tvec=vars->tvec;
 
 	size_t new_size=0;
 	 int   index_link=-1;
@@ -325,12 +388,12 @@ int render(Tvector *tvec,int screen_start,int cursorx, int cursory, char * * lin
 	char finish=0;
 	int i=screen_start;
 	while(!finish){
-		if(i>= tvec->size)
+		if(i>= tvec.size)
 			break;
-		switch(tvec->tokens[i].cmd){
+		switch(tvec.tokens[i].cmd){
 			case NL: // newline
 			printw("\n");
-			if(tvec->tokens[start].cmd==NL || tvec->tokens[end].cmd==NL){
+			if(tvec.tokens[start].cmd==NL || tvec.tokens[end].cmd==NL){
 				if(start==i )
 					beggining_in_screen_flag=1;
 				if(end==i)
@@ -339,7 +402,7 @@ int render(Tvector *tvec,int screen_start,int cursorx, int cursory, char * * lin
 				break;
 			case BOLD:
 				//start
-				if(tvec->tokens[i].start)
+				if(tvec.tokens[i].start)
 					attron(A_BOLD);
 				//end
 				else
@@ -347,48 +410,48 @@ int render(Tvector *tvec,int screen_start,int cursorx, int cursory, char * * lin
 
 				break;
 			case UNDER:
-				if(tvec->tokens[i].start)
+				if(tvec.tokens[i].start)
 					attron(A_UNDERLINE);
 				else
 					attroff(A_UNDERLINE);
 				break;
 			case ITALIC:
-				if(tvec->tokens[i].start)
+				if(tvec.tokens[i].start)
 					attron(A_ITALIC);
 				else
 					attroff(A_ITALIC);
 				break;
 			case HEADER1:
-				if(tvec->tokens[i].start)
+				if(tvec.tokens[i].start)
 					attron( A_BOLD | A_UNDERLINE | COLOR_PAIR(TITLE_COLOR));
 				else
 					attroff( A_BOLD | A_UNDERLINE | COLOR_PAIR(TITLE_COLOR));
 				break;
 			case HEADER2:
-				if(tvec->tokens[i].start)
+				if(tvec.tokens[i].start)
 					attron( A_BOLD |COLOR_PAIR(TITLE_COLOR));
 				else
 					attroff( A_BOLD  | COLOR_PAIR(TITLE_COLOR));
 				break;
 			case HEADERPLUS:
-				if(tvec->tokens[i].start)
+				if(tvec.tokens[i].start)
 					attron( COLOR_PAIR(TITLE_COLOR));
 				else
 					attroff( COLOR_PAIR(TITLE_COLOR));
 				break;
 			case CODE:
-				if(tvec->tokens[i].start)
+				if(tvec.tokens[i].start)
 					attron( COLOR_PAIR(CODE_COLOR));
 				else
 					attroff( COLOR_PAIR(CODE_COLOR));
 				break;
 			case TEXT:
 				
-			if(tvec->tokens[start].cmd==TEXT)
+			if(tvec.tokens[start].cmd==TEXT)
 				if(start==i)
 					beggining_in_screen_flag=1;
 
-				new_size=tvec->tokens[i].size;
+				new_size=tvec.tokens[i].size;
 				getyx(stdscr, y, x);
 				//if text can reach or pass end of screen
 				if(new_size >= (maxy-y-1)*maxx){
@@ -400,9 +463,9 @@ int render(Tvector *tvec,int screen_start,int cursorx, int cursory, char * * lin
 					break;
 				}
 				//print text
-				printw("%.*s",(int)new_size,tvec->tokens[i].text );
+				printw("%.*s",(int)new_size,tvec.tokens[i].text );
 
-				if(tvec->tokens[end].cmd==TEXT)
+				if(tvec.tokens[end].cmd==TEXT)
 					if(end==i)
 						last_in_screen_flag=1;
 				//if text was flagged as link (indexlink!=-1)
@@ -412,13 +475,13 @@ int render(Tvector *tvec,int screen_start,int cursorx, int cursory, char * * lin
 					getyx(stdscr, ye, xe);
 					if(check_link(x,y,xe,ye, cursorx, cursory)){
 
-						*link=tvec->tokens[index_link].text;
-						*link_size=tvec->tokens[index_link].size;
+						*link=tvec.tokens[index_link].text;
+						*link_size=tvec.tokens[index_link].size;
 					}
 				}
 				break;
 			case LINK: //Start of link 
-				if(tvec->tokens[i].start){
+				if(tvec.tokens[i].start){
 					attron( A_UNDERLINE |COLOR_PAIR(LINK_COLOR));
 					//saves this links index in the IR in this avar
 					index_link=i;
@@ -446,25 +509,23 @@ int prefix(const char *pre, const char *str)
 {
     return strncmp(pre, str, strlen(pre)) == 0;
 }
+
 int main(int argc, const char * argv[]){
 	// raw markdown
 	char * raw=NULL; //raw text saved in memory
 	int size_raw;
 
-	tvec_init(&tvec);
 	
 
-	int screen_start=0;//start of current screen for scroll
-	char * newline;//newline position
 
 	//char * previous_path;
 	char * previous=NULL;//path of previous file
 				   //
 	int ch; //ncurses char
 	int x = 0, y = 0;  // cursor position
-	char * link=NULL,* link_str=NULL; //current link under the cursor
-		
+	char * link=NULL ; //current link under the cursor
 	size_t link_size=0; //current link under the cursor
+			    //
 	int maxy, maxx;//screen size 
 	MEVENT event;
 
@@ -486,22 +547,7 @@ int main(int argc, const char * argv[]){
 	}
 
 							
-	// Md4c parcer pointers to callbacks and flags etc
-	MD_PARSER parser = {
-       		0,
-       		MD_FLAG_COLLAPSEWHITESPACE | MD_FLAG_UNDERLINE, // flags
-       		enter_block,
-       		leave_block,
-       		enter_span,
-       		leave_span,
-       		text,
-       		NULL,   // debug callback
-       		NULL    // userdata
-    	};
 
-
-
-	md_parse(raw, size_raw, &parser, NULL);
 
 
 	initscr();              // Start ncurses
@@ -512,8 +558,8 @@ int main(int argc, const char * argv[]){
 	start_color();          // Enable colors
 	use_default_colors();   // Use terminal color setup
 
-	
-	render(&tvec,0,x,y, &link,  &link_size);
+	render_init(raw, size_raw);
+	render(x,y, &link,  &link_size);
 
 
 
@@ -522,7 +568,9 @@ int main(int argc, const char * argv[]){
 		getmaxyx(stdscr, maxy, maxx);
 		// mode notebook
     		switch(ch) {
-		
+			case KEY_RESIZE:
+				render_init(raw, size_raw);
+				break;
 			case 27://ESC
 				y++;
 				break;
@@ -530,18 +578,12 @@ int main(int argc, const char * argv[]){
         		case KEY_UP:
 			case 'k':
 				if (y > 0) y--;
-				else if(!beggining_in_screen_flag){
-					//find new next line in raw or end of string
-					screen_start=prev_line(tvec, screen_start);
-				}
+				else scroll_up();
 				break;
         		case KEY_DOWN:
         		case 'j':
 				if (y < maxy - 2) y++;
-				else if(!last_in_screen_flag){
-					//find previous new line in raw or end of string
-					screen_start=next_line(tvec, screen_start);
-				}
+				else scroll_down();
 				break;
         		case KEY_LEFT:
         		case 'h':
@@ -560,23 +602,19 @@ int main(int argc, const char * argv[]){
 					x=event.x;
 			            }
 				    if(event.bstate & BUTTON4_PRESSED){
-					if (y > 0) y--;
-					else if(!beggining_in_screen_flag){
-						//find new next line in raw or end of string
-						screen_start=prev_line(tvec, screen_start);
-					}
+
+					if (y < maxy - 2) y++;
+					scroll_up();
 					break;
 				}
 				    if(event.bstate & BUTTON5_PRESSED){
-					if (y < maxy - 2) y++;
-					else if(!last_in_screen_flag){
-						//find previous new line in raw or end of string
-						screen_start=next_line(tvec, screen_start);
-					}
+
+					if (y > 0) y--;
+					scroll_down();
 
 					break;
 					}
-				render(&tvec,screen_start,x,y, &link,  &link_size);
+				render(x,y, &link,  &link_size);
 			        }
 
 				if(link==NULL)
@@ -602,9 +640,8 @@ int main(int argc, const char * argv[]){
 						else{
 							//find last and first text char 
 							//rendered from the raw file address in the raw file
-							tvec_free(&tvec);
-							md_parse(raw, size_raw, &parser, NULL);
-							screen_start=0;
+
+							render_init(raw, size_raw);
 							clear();
 						}
 					}
@@ -618,6 +655,8 @@ int main(int argc, const char * argv[]){
 					    	printw("File unavailable");
 					    	attroff(A_REVERSE);
     						refresh();
+
+
 						napms(800);
 					}
 					//size_raw = read_file(link + l, &raw);	
@@ -632,7 +671,7 @@ int main(int argc, const char * argv[]){
 
 		//RENDER ###########################################################################
 			      
-		render(&tvec,screen_start,x,y, &link,  &link_size);
+		render(x,y, &link,  &link_size);
 
 
 		// Print link at the last line
@@ -654,7 +693,7 @@ int main(int argc, const char * argv[]){
 	//printf("%s", raw);
 	
 	//destroys
-	tvec_free(&tvec);
+	destroy_renderer();
 	fclose(fp);
 	free(raw);
 }
