@@ -139,11 +139,9 @@ void tvec_free(Tvector *vec) {
 //PARSER into IR ###########################################################################
 
 
-static int current_block = 0;
 
 // parse block callbacks
 static int enter_block(MD_BLOCKTYPE type, void *detail, void *userdata) {
-    current_block = type;
     Tvector * tvec=(Tvector *)userdata;
     if (type == MD_BLOCK_H){
 
@@ -207,8 +205,6 @@ static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size,  void *user
 // RENDER ###############################################################################
 //put in struct and put in userdata as pointers declared in main
 
-static int last_in_screen_flag=0;
-static int beggining_in_screen_flag=0;
 
 //Ncurses colors
 # define DEFAULT_COLOR 1
@@ -222,12 +218,14 @@ int start;
 int end;
 int * text_positions;
 int * line_counts;
+int last_in_screen_flag;
+int beggining_in_screen_flag;
 Tvector tvec;
 }Init_render;
 
 
 Init_render* get_ptr_vars(){
-	static Init_render vars={0,0,0,NULL,NULL, {NULL,0,0}};
+	static Init_render vars={0,0,0,NULL,NULL,0,0, {NULL,0,0}};
 	return &vars;
 }
 
@@ -342,13 +340,15 @@ void prev_line( ){
 }
 
 void scroll_down( ){
-	if(!last_in_screen_flag){
+	Init_render* vars=get_ptr_vars();
+	if(!vars->last_in_screen_flag){
 		//find previous new line in raw or end of string
 		next_line();
 	}
 }
 void scroll_up(){
-	if(!beggining_in_screen_flag){
+	Init_render* vars=get_ptr_vars();
+	if(!vars->beggining_in_screen_flag){
 		//find new next line in raw or end of string
 		prev_line();
 	}
@@ -392,8 +392,8 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 	*link=NULL;
 	*link_size=0;
 
-	beggining_in_screen_flag=0;
-	last_in_screen_flag=0;
+	vars->beggining_in_screen_flag=0;
+	vars->last_in_screen_flag=0;
 
 	// ensure clean attribute state for this frame
 	attrset(A_NORMAL);
@@ -412,9 +412,9 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 			printw("\n");
 			if(tvec.tokens[start].cmd==NL || tvec.tokens[end].cmd==NL){
 				if(start==i )
-					beggining_in_screen_flag=1;
+					vars->beggining_in_screen_flag=1;
 				if(end==i)
-					last_in_screen_flag=1;
+					vars->last_in_screen_flag=1;
 				}
 				break;
 			case BOLD:
@@ -466,7 +466,7 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 				
 			if(tvec.tokens[start].cmd==TEXT)
 				if(start==i)
-					beggining_in_screen_flag=1;
+					vars->beggining_in_screen_flag=1;
 
 				new_size=tvec.tokens[i].size;
 				getyx(stdscr, y, x);
@@ -484,7 +484,7 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 
 				if(tvec.tokens[end].cmd==TEXT)
 					if(end==i)
-						last_in_screen_flag=1;
+						vars->last_in_screen_flag=1;
 				//if text was flagged as link (indexlink!=-1)
 				if(index_link>=0){
 					//gets end of link text in screen and checks if cursor
@@ -542,7 +542,7 @@ int main(int argc, const char * argv[]){
 	int x = 0, y = 0;  // cursor position
 	char * link=NULL ,* link_str; //current link under the cursor
 	size_t link_size=0; //current link under the cursor
-			    //
+	int fail;// flags
 	int maxy, maxx;//screen size 
 	MEVENT event;
 
@@ -643,11 +643,14 @@ int main(int argc, const char * argv[]){
 				if(link != NULL ){
 
 					link_str=strndup(link,link_size);
+
+					//file type of link
 					if(prefix(FILE_TAG, link_str)){
 						//trim string
 						size_t l = strlen(FILE_TAG);
 						// Read file to memory
 						FILE * fp = file_open(link_str+l);	
+						fail=1;
 						if (fp != NULL){
 							size_raw = read_file(fp, &raw);
 							if(size_raw == 0){
@@ -657,20 +660,18 @@ int main(int argc, const char * argv[]){
 								}
 
 							else{
-								//find last and first text char 
-								//rendered from the raw file address in the raw file
-
+								fail=0;
+								//restarts
 								render_init(raw, size_raw);
-								clear();
 							}
 						}
-						else{
-							display_msg("File unvavailable.", x, y);
-							napms(800);
-						}
-						//size_raw = read_file(link + l, &raw);	
 					}
 					free(link_str);
+
+					if(fail){
+						display_msg("File unavailable or empty.", x, y);
+						napms(800);
+					}
 					}
 				break;
 			default:
