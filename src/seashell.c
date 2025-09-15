@@ -355,6 +355,23 @@ void scroll_up(){
 
 }
 
+void display_msg(const char* msg, int x, int y){
+	int maxx, maxy;
+	getmaxyx(stdscr, maxy, maxx);
+	// Print message at the last line
+    	move(maxy-1, 0);            // move to last line
+	attrset(A_NORMAL);
+    	clrtoeol();                 // clear it
+    	attron(A_REVERSE);          // optional: highlight status bar
+	printw("%s", msg);
+    	attroff(A_REVERSE);
+	//move back cursor
+	move(y,x);
+	refresh();
+
+
+}
+
 int render(int cursorx, int cursory, char * * link, size_t * link_size){
 
 	int x, y,xe, ye, maxy, maxx;//screen size 
@@ -523,7 +540,7 @@ int main(int argc, const char * argv[]){
 				   //
 	int ch; //ncurses char
 	int x = 0, y = 0;  // cursor position
-	char * link=NULL ; //current link under the cursor
+	char * link=NULL ,* link_str; //current link under the cursor
 	size_t link_size=0; //current link under the cursor
 			    //
 	int maxy, maxx;//screen size 
@@ -623,45 +640,38 @@ int main(int argc, const char * argv[]){
 				//checks links when enter is pressed
 				//check if it's a file link
 				
-				link=strndup(link,link_size);
-				if(link != NULL && prefix(FILE_TAG, link)){
-					//trim string
-					size_t l = strlen(FILE_TAG);
-					// Read file to memory
-					FILE * fp = file_open(link+l);	
-					if (fp != NULL){
-						size_raw = read_file(fp, &raw);
-						if(size_raw == 0){
-							//goes back to previous file
-							FILE * fp = file_open(previous);	
+				if(link != NULL ){
+
+					link_str=strndup(link,link_size);
+					if(prefix(FILE_TAG, link_str)){
+						//trim string
+						size_t l = strlen(FILE_TAG);
+						// Read file to memory
+						FILE * fp = file_open(link_str+l);	
+						if (fp != NULL){
 							size_raw = read_file(fp, &raw);
-											}
+							if(size_raw == 0){
+								//goes back to previous file
+								FILE * fp = file_open(previous);	
+								size_raw = read_file(fp, &raw);
+								}
 
-						else{
-							//find last and first text char 
-							//rendered from the raw file address in the raw file
+							else{
+								//find last and first text char 
+								//rendered from the raw file address in the raw file
 
-							render_init(raw, size_raw);
-							clear();
+								render_init(raw, size_raw);
+								clear();
+							}
 						}
+						else{
+							display_msg("File unvavailable.", x, y);
+							napms(800);
+						}
+						//size_raw = read_file(link + l, &raw);	
 					}
-					else{
-
-						// Print link at the last line
-					    	move(maxy-1, 0);            // move to last line
-						attrset(A_NORMAL);
-					    	clrtoeol();                 // clear it
-					    	attron(A_REVERSE);          // optional: highlight status bar
-					    	printw("File unavailable");
-					    	attroff(A_REVERSE);
-    						refresh();
-
-
-						napms(800);
+					free(link_str);
 					}
-					//size_raw = read_file(link + l, &raw);	
-				}
-				free(link);
 				break;
 			default:
 				//mvaddch(y, x, ch); // type a character at cursor
@@ -675,17 +685,12 @@ int main(int argc, const char * argv[]){
 
 
 		// Print link at the last line
-	   	move(maxy-1, 0);            // move to last line
-		attrset(A_NORMAL);
-	   	clrtoeol();                 // clear it
-	   	attron(A_REVERSE);          // optional: highlight status bar
-	   	if(link != NULL)
-	   		printw("%.*s",(int)link_size, link);
-	   	attroff(A_REVERSE);
-	
+	   	if(link != NULL){
+			link_str=strndup(link, link_size);
+			display_msg(link,  x, y);
+			free(link_str);
 							     
-   	 	move(y, x);  // move cursor to user position
-    		refresh();
+		}
 	}
 
     	endwin();               // Cleanup
