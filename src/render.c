@@ -145,7 +145,6 @@ static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size,  void *user
 }
 
 // RENDER ###############################################################################
-//put in struct and put in userdata as pointers declared in main
 
 
 //Ncurses colors
@@ -156,8 +155,11 @@ static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size,  void *user
 
 typedef struct init{
 int screen_start;
+int screen_start_line;// the _line parameters are like the least signficant
+		      // decimal place and represent the line withing a text given a screen size
 int start;
 int end;
+int end_line;
 int * text_positions;
 int * line_counts;
 int last_in_screen_flag;
@@ -167,7 +169,7 @@ Tvector tvec;
 
 
 Init_render* get_ptr_vars(){
-	static Init_render vars={0,0,0,NULL,NULL,0,0, {NULL,0,0}};
+	static Init_render vars={0,0,0,0,0,NULL,NULL,0,0, {NULL,0,0} };
 	return &vars;
 }
 
@@ -211,7 +213,12 @@ void render_init(char* raw, int size_raw){
 				count++;
 			}
 
-
+	//start of the first screen at a displayable token
+	//(all previous non displayable tokens are executed by the renderer anyways)
+	for(i=vars->screen_start; i<vars->tvec.size; i++)
+		if(vars->tvec.tokens[i].cmd == NL ||vars->tvec.tokens[i].cmd == TEXT  )
+			break;
+		vars->screen_start=i;
 
 
 }
@@ -255,26 +262,83 @@ int check_link(int xs,int  ys, int xe, int ye,  int cursorx, int cursory){
 
 }
 
+//count the lines of a text
+int count_size(int screen_start){
+	int  total_size=0, count;
+	Init_render* vars=get_ptr_vars();
+	Tvector tvec=vars->tvec;
+
+
+	//aggregates all contiguous text
+	for( int i=screen_start; i<tvec.size; i++)
+		if(tvec.tokens[i].cmd == TEXT ){
+			total_size+=tvec.tokens[i].size;
+			//ids in tvec of the text from screen_start
+			count++;
+		}
+		else if(tvec.tokens[i].cmd == NL)
+			break;
+
+	return total_size;
+}
+//finds the char that beggins the line
+int find_line(int * token, int line){
+	Init_render* vars=get_ptr_vars();
+	int line_number=0, i, j=0, total_size=0;
+	int maxx, maxy;
+	getmaxyx(stdscr, maxy, maxx);
+
+	//if the line requested is larger that the current text it will just 
+	//go to the next NL or the EOF
+	for(i=*token; i<vars->tvec.size; i++){
+		//goes through all text tokens between newlines
+		if(vars->tvec.tokens[i].cmd == TEXT ){
+			//goes through chars until line_number reaches the desired line
+			//starts using the remainder of the total size up to this point
+			for(j=total_size % maxx; j< vars->tvec.tokens[i].size; j+=maxx){
+				if(line_number==line){
+					*token=i;
+					return j;
+				}
+				line_number++;
+			}
+
+			total_size+=vars->tvec.tokens[i].size;
+		}
+		//next new line if reached end of text block
+		else if(vars->tvec.tokens[i].cmd == NL && i!=*token){
+			*token=i;
+			return -1;
+		}
+
+
+	}
+
+	//end of file
+	*token=i;
+	return -2;
+}
 
 //next line
 void next_line(){
 	Init_render* vars=get_ptr_vars();
-	int start=vars->screen_start;
-	Tvector tvec=vars->tvec;
-	int i;
-	for(i=start+1; i<tvec.size; i++)
-		if(tvec.tokens[i].cmd == NL )
-			break;
-	vars->screen_start=i;
+	int i=vars->screen_start;
+	//jumps to next newline
+	vars->screen_start_line+=1;
+	if(-1 == find_line(&i,vars->screen_start_line+1)){ 
+		vars->screen_start=i;
+		vars->screen_start_line=0;
+		
+	}
 }
 
 //previous line
 void prev_line( ){
 	Init_render* vars=get_ptr_vars();
-	int start=vars->screen_start;
+	int screen_start=vars->screen_start;
 	Tvector tvec=vars->tvec;
 	int i;
-	for(i=start-1; i>=0; i--)
+	for(i=screen_start-1; i>=0; i--)
 		if(tvec.tokens[i].cmd == NL  )
 			break;
 
@@ -284,14 +348,12 @@ void prev_line( ){
 void scroll_down( ){
 	Init_render* vars=get_ptr_vars();
 	if(!vars->last_in_screen_flag){
-		//find previous new line in raw or end of string
 		next_line();
 	}
 }
 void scroll_up(){
 	Init_render* vars=get_ptr_vars();
 	if(!vars->beggining_in_screen_flag){
-		//find new next line in raw or end of string
 		prev_line();
 	}
 
@@ -305,7 +367,7 @@ void display_msg(const char* msg, int x, int y){
 	attrset(A_NORMAL);
     	clrtoeol();                 // clear it
     	attron(A_REVERSE);          // optional: highlight status bar
-	printw("%s", msg);
+	printw("%.*s",maxx, msg);
     	attroff(A_REVERSE);
 	//move back cursor
 	move(y,x);
@@ -314,9 +376,9 @@ void display_msg(const char* msg, int x, int y){
 
 }
 
-void attribute_renderer(Token token, unsigned int attribute, Init_render * vars, int acc_flag){
-	
-	if(token.start ){
+void attribute_renderer(int token, unsigned int attribute){
+	Init_render* vars=get_ptr_vars();
+	if(vars->tvec.tokens[token].start ){
 		attron(attribute);
 	}
 	//end
@@ -326,6 +388,14 @@ void attribute_renderer(Token token, unsigned int attribute, Init_render * vars,
 
 }
 
+void print_text( char *s, int size) {
+    for ( char *p = s; p-s<size; p++) {
+        if (*p == '\n')
+            addch(' ');
+        else
+            addch(*p);
+    }
+}
 int render(int cursorx, int cursory, char * * link, size_t * link_size){
 
 	int x, y,xe, ye, maxy, maxx;//screen size 
@@ -334,7 +404,7 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 		     
 	//acummulated tokens counter
 	Init_render* vars=get_ptr_vars();
-	int start=vars->start, end=vars->end, screen_start=vars->screen_start;
+	int start=vars->start, end=vars->end;
 	Tvector tvec=vars->tvec;
 
 	size_t new_size=0;
@@ -360,7 +430,7 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 	int acc_flag=0;
 
 	char finish=0;
-	int i=screen_start;
+	int i=0;
 	int cmd=0;
 	while(!finish){
 		if(i>= tvec.size)
@@ -368,8 +438,11 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 		cmd=tvec.tokens[i].cmd;
 		switch(cmd){
 			case NL: // newline
-			printw("\n");
-			if(tvec.tokens[start].cmd==NL || tvec.tokens[end].cmd==NL){
+				//start rendering lines at the screen_start
+				if(i < vars->screen_start)
+					break;
+				addch('\n');
+				if(tvec.tokens[start].cmd==NL || tvec.tokens[end].cmd==NL){
 				if(start==i )
 					vars->beggining_in_screen_flag=1;
 				if(end==i)
@@ -377,33 +450,28 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 				}
 				break;
 			case BOLD:
-				attribute_renderer(tvec.tokens[i], A_BOLD, vars, acc_flag);
+				attribute_renderer(i, A_BOLD);
 				break;
 			case UNDER:
-				attribute_renderer(tvec.tokens[i], A_UNDERLINE, vars, acc_flag);
+				attribute_renderer(i, A_UNDERLINE);
 				break;
 			case ITALIC:
-				attribute_renderer(tvec.tokens[i], A_ITALIC, vars, acc_flag);
+				attribute_renderer(i, A_ITALIC);
 				break;
 			case HEADER1:
-				attribute_renderer(
-						tvec.tokens[i],
-						A_BOLD | A_UNDERLINE | COLOR_PAIR(TITLE_COLOR),
-						vars,
-						acc_flag);
+				attribute_renderer(i, A_BOLD | A_UNDERLINE | COLOR_PAIR(TITLE_COLOR));
 				break;
 			case HEADER2:
-				attribute_renderer(tvec.tokens[i], A_BOLD  | COLOR_PAIR(TITLE_COLOR) , vars, acc_flag);
+				attribute_renderer(i, A_BOLD  | COLOR_PAIR(TITLE_COLOR) );
 				break;
 			case HEADERPLUS:
-				attribute_renderer(tvec.tokens[i], COLOR_PAIR(TITLE_COLOR) , vars, acc_flag);
+				attribute_renderer(i, COLOR_PAIR(TITLE_COLOR));
 				break;
 			case CODE:
-				attribute_renderer(tvec.tokens[i],COLOR_PAIR(CODE_COLOR) , vars, acc_flag);
-					attroff( COLOR_PAIR(CODE_COLOR));
+				attribute_renderer(i,COLOR_PAIR(CODE_COLOR) );
 				break;
 			case LINK: //Start of link 
-				attribute_renderer(tvec.tokens[i],A_UNDERLINE |COLOR_PAIR(LINK_COLOR) , vars, acc_flag);
+				attribute_renderer(i,A_UNDERLINE |COLOR_PAIR(LINK_COLOR) );
 				if(tvec.tokens[i].start){
 					//saves this links index in the IR in this avar
 					index_link=i;
@@ -413,13 +481,23 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 				}
 				break;
 			case TEXT:
-				
-			if(tvec.tokens[start].cmd==TEXT)
-				if(start==i)
-					vars->beggining_in_screen_flag=1;
+				int current_line_token, chr;
 
+				//start rendering text at screen_start
+				if(i < vars->screen_start)
+					break;
+
+				//chr=find_line(&current_line_token, vars->screen_start_line);	
+				//if(current_line_token> i)
+					//break;
+
+				if(tvec.tokens[start].cmd==TEXT)
+					if(start==i)
+						vars->beggining_in_screen_flag=1;
 				new_size=tvec.tokens[i].size;
 				getyx(stdscr, y, x);
+
+
 				//if text can reach or pass end of screen
 				if(new_size >= (maxy-y-1)*maxx){
 					new_size = (maxy-y-1)*maxx;
@@ -429,8 +507,10 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 					finish=1;
 					break;
 				}
+				
+
 				//print text
-				printw("%.*s",(int)new_size,tvec.tokens[i].text );
+				print_text(tvec.tokens[i].text, new_size);
 
 				if(tvec.tokens[end].cmd==TEXT)
 					if(end==i)
@@ -453,9 +533,7 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 
 	}
 
-
-
-   	 move(cursory, cursorx);   // move cursor to user position
+	move(cursory, cursorx);   // move cursor to user position
     	refresh();
 	attrset(A_NORMAL);
 	return 0;

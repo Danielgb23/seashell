@@ -222,8 +222,6 @@ int main(int argc, const char * argv[]){
 					}
 				break;
 			default:
-				//mvaddch(y, x, ch); // type a character at cursor
-				//if (x < maxx - 1) x++;
     		}
 
 
@@ -235,7 +233,7 @@ int main(int argc, const char * argv[]){
 		// Print link at the last line
 	   	if(link != NULL){
 			link_str=strndup(link, link_size);
-			display_msg(link,  x, y);
+			display_msg(link_str, x, y);
 			free(link_str);
 							     
 		}
