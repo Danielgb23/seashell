@@ -2,7 +2,7 @@
 
 Seashell is a small experimental terminal-based Markdown reader/personal wiki written in C using `ncurses` and [MD4C](https://github.com/mity/md4c).
 It is  meant as a personal project to explore text rendering, parsing, and terminal interaction on Linux.
-Perhaps I evolve it into a sort of shell/envirnoment rendered from markdown files to execute lua scripts and explore rendring images 
+Perhaps I evolve it into a sort of shell/envirnoment rendered from markdown files to execute lua scripts and explore rendering images 
 in terminal emulators like kitty.
 
 <img width="768" height="507" alt="image" src="https://github.com/user-attachments/assets/c2444abd-5492-4d34-b1c8-d73d9f47d3c2" />
@@ -60,8 +60,7 @@ In the folder tests there are several test files. To link to another file you ha
 
 ## Status
 
-This is still a work-in-progress. Expect bugs and incomplete features.
-The main goal is to experiment with text rendering, Markdown parsing, and wiki-like navigation in the terminal, not to replace established tools.
+This is still a work-in-progress. 
 
 ## License
 
