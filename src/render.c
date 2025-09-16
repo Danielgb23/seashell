@@ -263,19 +263,17 @@ int check_link(int xs,int  ys, int xe, int ye,  int cursorx, int cursory){
 
 }
 
-//count the lines of a text
-int count_size(int screen_start){
-	int  total_size=0, count;
+//count the lines of a text from a NL token
+int count_size(int token){
+	int  total_size=0 ;
 	Init_render* vars=get_ptr_vars();
 	Tvector tvec=vars->tvec;
 
 
 	//aggregates all contiguous text
-	for( int i=screen_start; i<tvec.size; i++)
+	for( int i=token+1; i<tvec.size; i++)
 		if(tvec.tokens[i].cmd == TEXT ){
 			total_size+=tvec.tokens[i].size;
-			//ids in tvec of the text from screen_start
-			count++;
 		}
 		else if(tvec.tokens[i].cmd == NL)
 			break;
@@ -320,6 +318,7 @@ int find_line(int * token, int line){
 	return -2;
 }
 
+//next text token from tokenid
 int next_text(int tokenid){
 	Init_render* vars=get_ptr_vars();
 	int i;
@@ -330,9 +329,22 @@ int next_text(int tokenid){
 
 }
 
-//next line
-void next_line(){
+//goes from token to previous new line
+int prev_nl(int token){
 	Init_render* vars=get_ptr_vars();
+	Tvector tvec=vars->tvec;
+	int i;
+	for(i=token-1; i>=0; i--)
+		if(tvec.tokens[i].cmd == NL  )
+			break;
+
+	return i;
+}
+
+
+void scroll_down( ){
+	Init_render* vars=get_ptr_vars();
+	if(!vars->last_in_screen_flag){
 	int i=vars->screen_start;
 	//jumps to next newline
 	vars->screen_start_line+=1;
@@ -341,31 +353,19 @@ void next_line(){
 		vars->screen_start_line=0;
 		
 	}
-}
-
-//previous line
-void prev_line( ){
-	Init_render* vars=get_ptr_vars();
-	int screen_start=vars->screen_start;
-	Tvector tvec=vars->tvec;
-	int i;
-	for(i=screen_start-1; i>=0; i--)
-		if(tvec.tokens[i].cmd == NL  )
-			break;
-
-	vars->screen_start=i;
-}
-
-void scroll_down( ){
-	Init_render* vars=get_ptr_vars();
-	if(!vars->last_in_screen_flag){
-		next_line();
 	}
 }
 void scroll_up(){
 	Init_render* vars=get_ptr_vars();
+	int maxx, maxy;
 	if(!vars->beggining_in_screen_flag){
-		prev_line();
+		getmaxyx(stdscr, maxy, maxx);
+		//jumps to next newline
+		vars->screen_start_line-=1;
+		if (vars->screen_start_line<0){
+			vars->screen_start=prev_nl(vars->screen_start);
+			vars->screen_start_line=count_size(vars->screen_start)/maxx;
+		}
 	}
 
 }
@@ -452,6 +452,11 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 				//start rendering lines at the screen_start
 				if(i < vars->screen_start)
 					break;
+
+				getyx(stdscr, y, x);
+				if(y==maxy-2)
+					finish=1;
+
 				addch('\n');
 				if(tvec.tokens[start].cmd==NL || tvec.tokens[end].cmd==NL){
 					vars->beggining_in_screen_flag=0;
@@ -460,9 +465,6 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 					if(end==i)
 						vars->last_in_screen_flag=1;
 				}
-				getyx(stdscr, y, x);
-				if(y==maxy-2)
-					finish=1;
 				break;
 			case BOLD:
 				attribute_renderer(i, A_BOLD);
@@ -515,8 +517,9 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 					text+=chr;
 				}
 
+				vars->beggining_in_screen_flag=0;
 				if(tvec.tokens[start].cmd==TEXT)
-					if(start==i)
+					if(start==i && vars->screen_start_line==0)
 						vars->beggining_in_screen_flag=1;
 				getyx(stdscr, y, x);
 
