@@ -220,6 +220,8 @@ void render_init(char* raw, int size_raw){
 			break;
 		vars->screen_start=i;
 
+	vars->screen_start=0;
+	vars->screen_start_line=0;
 	vars->last_in_screen_flag=0;
 
 }
@@ -334,6 +336,8 @@ int prev_nl(int token){
 	Init_render* vars=get_ptr_vars();
 	Tvector tvec=vars->tvec;
 	int i;
+	if(0==token )
+		return 0;
 	for(i=token-1; i>=0; i--)
 		if(tvec.tokens[i].cmd == NL  )
 			break;
@@ -342,17 +346,17 @@ int prev_nl(int token){
 }
 
 
-void scroll_down( ){
+void scroll_down(){
 	Init_render* vars=get_ptr_vars();
-	if(!vars->last_in_screen_flag){
 	int i=vars->screen_start;
-	//jumps to next newline
-	vars->screen_start_line+=1;
-	if(-1 == find_line(&i,vars->screen_start_line)){ 
-		vars->screen_start=i;
-		vars->screen_start_line=0;
-		
-	}
+	if(!vars->last_in_screen_flag){
+		//jumps to next newline
+		vars->screen_start_line+=1;
+		if(-1 == find_line(&i,vars->screen_start_line)){ 
+			vars->screen_start=i;
+			vars->screen_start_line=0;
+			
+		}
 	}
 }
 void scroll_up(){
