@@ -167,13 +167,15 @@ int main(int argc, const char * argv[]){
 			            }
 				    if(event.bstate & BUTTON4_PRESSED){
 
-					if (y < maxy - 2) y++;
-					scroll_up();
+					if(!get_first_in_screen())
+						if (y < maxy - 2) y++;
+						scroll_up();
 					break;
 				}
 				    if(event.bstate & BUTTON5_PRESSED){
 
-					if (y > 0) y--;
+					if(!get_last_in_screen())
+						if (y > 0) y--;
 					scroll_down();
 
 					break;

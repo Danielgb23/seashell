@@ -173,6 +173,16 @@ Init_render* get_ptr_vars(){
 	return &vars;
 }
 
+//next text/nl token from tokenid
+int next_nl_or_text(int tokenid){
+	Init_render* vars=get_ptr_vars();
+	int i;
+	for( i=tokenid; i< vars->tvec.size; i++)
+		if(vars->tvec.tokens[i].cmd == NL || vars->tvec.tokens[i].cmd == TEXT)
+			break;
+	return i;
+
+}
 //initializes renderer or returns initial variables
 void render_init(char* raw, int size_raw){
 	Init_render * vars=get_ptr_vars();
@@ -213,14 +223,8 @@ void render_init(char* raw, int size_raw){
 				count++;
 			}
 
-	//start of the first screen at a displayable token
-	//(all previous non displayable tokens are executed by the renderer anyways)
-	for(i=vars->screen_start; i<vars->tvec.size; i++)
-		if(vars->tvec.tokens[i].cmd == NL ||vars->tvec.tokens[i].cmd == TEXT  )
-			break;
-		vars->screen_start=i;
-
-	vars->screen_start=0;
+	vars->screen_start=next_nl_or_text(0);
+	vars->start=next_nl_or_text(0);
 	vars->screen_start_line=0;
 	vars->last_in_screen_flag=0;
 
@@ -234,8 +238,9 @@ void destroy_renderer(){
 
 
 
+//checks if cursor is above a link
 int check_link(int xs,int  ys, int xe, int ye,  int cursorx, int cursory){
-	// checks for links
+
 		//One line link
 		if( ye == ys && cursory == ys)		
 		{
@@ -331,21 +336,29 @@ int next_text(int tokenid){
 
 }
 
-//goes from token to previous new line
-int prev_nl(int token){
+
+
+//goes from token to previous new line or text only if at the beggining
+int prev_nl_or_text(int token){
 	Init_render* vars=get_ptr_vars();
 	Tvector tvec=vars->tvec;
 	int i;
-	if(0==token )
-		return 0;
 	for(i=token-1; i>=0; i--)
 		if(tvec.tokens[i].cmd == NL  )
 			break;
-
+	if(0>=i)
+		return next_nl_or_text(0);
 	return i;
 }
 
-
+int get_last_in_screen(){
+	Init_render* vars=get_ptr_vars();
+	return vars->last_in_screen_flag;
+}
+int get_first_in_screen(){
+	Init_render* vars=get_ptr_vars();
+	return vars->beggining_in_screen_flag;
+}
 void scroll_down(){
 	Init_render* vars=get_ptr_vars();
 	int i=vars->screen_start;
@@ -367,7 +380,7 @@ void scroll_up(){
 		//jumps to next newline
 		vars->screen_start_line-=1;
 		if (vars->screen_start_line<0){
-			vars->screen_start=prev_nl(vars->screen_start);
+			vars->screen_start=prev_nl_or_text(vars->screen_start);
 			vars->screen_start_line=count_size(vars->screen_start)/maxx;
 		}
 	}
@@ -390,7 +403,7 @@ void display_msg(const char* msg, int x, int y){
 
 
 }
-
+//Activates /deactivates atributes for each type of token
 void attribute_renderer(int token, unsigned int attribute){
 	Init_render* vars=get_ptr_vars();
 	if(vars->tvec.tokens[token].start ){
