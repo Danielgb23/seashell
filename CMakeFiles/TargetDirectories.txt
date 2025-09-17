@@ -1,5 +1,0 @@
-/home/perkunos/projects/seashell/CMakeFiles/Md4c.dir
-/home/perkunos/projects/seashell/CMakeFiles/Render.dir
-/home/perkunos/projects/seashell/CMakeFiles/Seashell.dir
-/home/perkunos/projects/seashell/CMakeFiles/edit_cache.dir
-/home/perkunos/projects/seashell/CMakeFiles/rebuild_cache.dir
