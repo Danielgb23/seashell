@@ -6,7 +6,7 @@
 
 *Italic and **italic bold*** **TEST bold**
 
-This is a [link](file://./tests/wiki.md) inside Markdown.
+This is a [link](file://../tests/wiki.md) inside Markdown.
 
 This is **bold** this is _underlined_ and [broken link 2 boy](file://./tests/test2.md)
 

@@ -1,8 +1,15 @@
+#define _XOPEN_SOURCE_EXTENDED
 # include <stdio.h>
 # include <stdlib.h>
-# include <string.h>
 
-# include "md4c.h"
+#include <wchar.h>
+
+#ifndef _UNICODE
+#define _UNICODE
+#endif
+
+# include <string.h>
+# include <curses.h>
 
 int render(int cursorx, int cursory, char * * link, size_t * link_size);
 

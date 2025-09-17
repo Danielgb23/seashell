@@ -1,26 +1,21 @@
-# include <sys/stat.h>
-
-# include <stdio.h>
-# include <stdlib.h>
-# include <string.h>
-
 # include "render.h"
+# include <sys/stat.h>
+#include <locale.h>
 
-#include <ncurses.h>
 //###################################################################################################
 //Read files
 #define MAX_FILE_SIZE (256 * 1024 * 1024)  // 256 MB
 FILE * file_open(const char *filename){
 	// open file
 	FILE* fp;
-	fp=fopen(filename, "r");
+	fp=fopen((char*)filename, "r , ccs=UTF-8");
 	if (fp == NULL) {
 	    //perror("no such file.");
 	    return NULL;
 	}
 	// File size limit
 	struct stat st;
-    	if (stat(filename, &st) != 0) return 0;
+    	if (stat((char*)filename, &st) != 0) return 0;
 
     	if (st.st_size > MAX_FILE_SIZE) {
         fprintf(stderr, "File too large (%ld bytes)\n", st.st_size);
@@ -54,27 +49,29 @@ int read_file(FILE*  fp, char * * out){
 	return size;
 }
 
-char *strndup(const char *s, size_t n) {
-    size_t len = 0;
-    while (s[len] && len < n) len++;   // determine actual length to copy
-
-    char *copy = malloc(len + 1);
-    if (!copy) return NULL;
-
-    for (size_t i = 0; i < len; i++)
-        copy[i] = s[i];
-
-    copy[len] = '\0';
-    return copy;
-}
+//char *strndup( char *s, size_t n) {
+//    size_t len = 0;
+//    while (s[len] && len < n) len++;   // determine actual length to copy
+//
+//    char *copy = malloc(sizeof(char)*(len + 1));
+//    if (!copy) return NULL;
+//
+//    for (size_t i = 0; i < len; i++)
+//        copy[i] = s[i];
+//
+//    copy[len] = '\0';
+//    return copy;
+//}
 //MAIN #############################################################################################
 # define FILE_TAG "file://"
 int prefix(const char *pre, const char *str)
 {
-    return strncmp(pre, str, strlen(pre)) == 0;
+    return strncmp(pre, str,strlen(pre) ) == 0;
 }
 
 int main(int argc, const char * argv[]){
+
+	setlocale(LC_ALL, "C.UTF-8");
 	// raw markdown
 	char * raw=NULL; //raw text saved in memory
 	int size_raw;
@@ -103,7 +100,7 @@ int main(int argc, const char * argv[]){
 
 	// Read file to memory
 	previous=(char*)argv[1];
-	FILE * fp = file_open(argv[1]);	
+	FILE * fp = file_open((char *)argv[1]);	
 	size_raw = read_file(fp, &raw);
 	if(size_raw == 0){
 		printf("No data in file or file non existant\n");
@@ -111,7 +108,6 @@ int main(int argc, const char * argv[]){
 	}
 
 							
-
 
 
 	initscr();              // Start ncurses
@@ -194,7 +190,7 @@ int main(int argc, const char * argv[]){
 					link_str=strndup(link,link_size);
 
 					//file type of link
-					if(prefix(FILE_TAG, link_str)){
+					if(prefix((char*) FILE_TAG, link_str)){
 						//trim string
 						size_t l = strlen(FILE_TAG);
 						// Read file to memory
@@ -218,7 +214,7 @@ int main(int argc, const char * argv[]){
 					free(link_str);
 
 					if(fail){
-						display_msg("File unavailable or empty.", x, y);
+						display_msg((const char *)"File unavailable or empty.", x, y);
 						napms(800);
 					}
 					}

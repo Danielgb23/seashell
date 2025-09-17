@@ -1,14 +1,8 @@
+# include "render.h"
 
-# include <stdio.h>
-# include <stdlib.h>
-# include <string.h>
-
-//#define MD4C_USE_UTF8
+# define MD4C_USE_UTF8
 # include "md4c.h"
 
-# include "../include/render.h"
-
-# include <curses.h>
 // TOKEN DATA STRUCTURE #################################################################
 
 //Commands for renderer tokens
@@ -28,7 +22,7 @@ enum Cmd {
 
 typedef struct token{
 	enum Cmd cmd; //command id for the renderer
-	char * text; //text address to be rendered or link href if link command
+	char* text; //text address to be rendered or link href if link command
 	size_t size; //size of text or link
 	char start; //bool of start or end token
 }Token;
@@ -58,7 +52,7 @@ static void tvec_grow(Tvector *vec) {
 }
 
 // Push a copy of a token
-void tvec_push(Tvector *vec, enum Cmd cmd, char *text, size_t size, char start) {
+void tvec_push(Tvector *vec, enum Cmd cmd, char*text, size_t size, char start) {
     if (vec->size == vec->capacity) {
         tvec_grow(vec);
     }
@@ -203,7 +197,7 @@ void render_init(char* raw, int size_raw){
 
 	tvec_init(&(vars->tvec));
 
-	md_parse(raw, size_raw, &parser, &(vars->tvec));
+	md_parse((MD_CHAR*)raw, size_raw, &parser, &(vars->tvec));
 
 	//reinitializes parsed IR
 		//gives pointer address of static var
@@ -287,7 +281,7 @@ int count_size(int token){
 
 	return total_size;
 }
-//finds the char that beggins the line
+//finds the charthat beggins the line
 int find_line(int * token, int line){
 	Init_render* vars=get_ptr_vars();
 	int line_number=0, i, j=0, total_size=0;
@@ -387,19 +381,32 @@ void scroll_up(){
 
 }
 
+ wchar_t *makewc(const char *c)
+{
+    size_t cSize = strlen(c)+1;
+    wchar_t* wc = malloc(sizeof(wchar_t)*cSize);
+    mbstowcs (wc, c, cSize);
+
+    return wc;
+}
 void display_msg(const char* msg, int x, int y){
 	int maxx, maxy;
+	wchar_t * wmsg;
+
 	getmaxyx(stdscr, maxy, maxx);
 	// Print message at the last line
     	move(maxy-1, 0);            // move to last line
 	attrset(A_NORMAL);
     	clrtoeol();                 // clear it
     	attron(A_REVERSE);          // optional: highlight status bar
-	printw("%.*s",maxx, msg);
+	wmsg=makewc(msg);	
+	addwstr(wmsg);
     	attroff(A_REVERSE);
 	//move back cursor
 	move(y,x);
 	refresh();
+
+	free(wmsg);
 
 
 }
@@ -416,15 +423,22 @@ void attribute_renderer(int token, unsigned int attribute){
 
 }
 
-void print_text( char *s, int size) {
-    for ( char *p = s; p-s<size; p++) {
-        if (*p == '\n')
-            addch(' ');
-        else
-            addch(*p);
+
+void print_text(char *s, int size) {
+	char * text;
+	wchar_t * ws;
+	text=strndup(s, size);
+
+    for (char * i=text; *i; i++) {
+        if (*text =='\n' ) *text = ' ';
     }
+
+	ws=makewc(text);	
+	addwstr(ws);
+	free(text);
+	free(ws);
 }
-int render(int cursorx, int cursory, char * * link, size_t * link_size){
+int render(int cursorx, int cursory, char* * link, size_t * link_size){
 
 	int x, y,xe, ye, maxy, maxx;//screen size 
 	getmaxyx(stdscr, maxy, maxx);
@@ -455,9 +469,8 @@ int render(int cursorx, int cursory, char * * link, size_t * link_size){
 	// if you want a default color background, apply it now:
 	attron(COLOR_PAIR(1));
 	move(0, 0);   // Cursor at 0 to input screen text
-	int acc_flag=0;
 
-	char finish=0;
+	int finish=0;
 	int i=0;
 	int cmd=0;
 	while(!finish){
