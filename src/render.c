@@ -1,4 +1,6 @@
 # include "render.h"
+
+# define MD4C_USE_UTF8
 # include "md4c.h"
 
 // TOKEN DATA STRUCTURE #################################################################
@@ -20,9 +22,9 @@ enum Cmd {
 
 typedef struct token{
 	enum Cmd cmd; //command id for the renderer
-	wchar_t* text; //text address to be rendered or link href if link command
+	char* text; //text address to be rendered or link href if link command
 	size_t size; //size of text or link
-	wchar_t start; //bool of start or end token
+	char start; //bool of start or end token
 }Token;
 
 typedef struct tvector{
@@ -50,7 +52,7 @@ static void tvec_grow(Tvector *vec) {
 }
 
 // Push a copy of a token
-void tvec_push(Tvector *vec, enum Cmd cmd, wchar_t*text, size_t size, wchar_t start) {
+void tvec_push(Tvector *vec, enum Cmd cmd, char*text, size_t size, char start) {
     if (vec->size == vec->capacity) {
         tvec_grow(vec);
     }
@@ -79,24 +81,24 @@ static int enter_block(MD_BLOCKTYPE type, void *detail, void *userdata) {
     Tvector * tvec=(Tvector *)userdata;
     if (type == MD_BLOCK_H){
 
-	tvec_push( tvec,NL,(wchar_t*) NULL, 0, 1);	//adds newline
+	tvec_push( tvec,NL,(char*) NULL, 0, 1);	//adds newline
 	MD_BLOCK_H_DETAIL *d = (MD_BLOCK_H_DETAIL *)detail;
-	if(d->level ==1) tvec_push( tvec,HEADER1,(wchar_t*) NULL, 0, 1);	
-	else if(d->level ==2) tvec_push( tvec,HEADER2,(wchar_t*) NULL, 0, 1);
-	else tvec_push( tvec,HEADERPLUS,(wchar_t*) NULL, 0, 1);
+	if(d->level ==1) tvec_push( tvec,HEADER1,(char*) NULL, 0, 1);	
+	else if(d->level ==2) tvec_push( tvec,HEADER2,(char*) NULL, 0, 1);
+	else tvec_push( tvec,HEADERPLUS,(char*) NULL, 0, 1);
     }
     return 0;
 }
 static int leave_block(MD_BLOCKTYPE type, void *detail, void *userdata) {
     	Tvector * tvec=(Tvector *)userdata;
     	if (type == MD_BLOCK_H || type == MD_BLOCK_P)
-		tvec_push(tvec,NL,(wchar_t*) NULL, 0, 1);	//adds newline
+		tvec_push(tvec,NL,(char*) NULL, 0, 1);	//adds newline
 
 	if (type == MD_BLOCK_H){
 		MD_BLOCK_H_DETAIL *d = (MD_BLOCK_H_DETAIL *)detail;
-		if(d->level ==1) tvec_push(tvec,HEADER1,(wchar_t*) NULL, 0, 0);	
-		else if(d->level ==2) tvec_push(tvec,HEADER2,(wchar_t*) NULL, 0, 0);
-		else tvec_push(tvec,HEADERPLUS,(wchar_t*) NULL, 0, 0);
+		if(d->level ==1) tvec_push(tvec,HEADER1,(char*) NULL, 0, 0);	
+		else if(d->level ==2) tvec_push(tvec,HEADER2,(char*) NULL, 0, 0);
+		else tvec_push(tvec,HEADERPLUS,(char*) NULL, 0, 0);
 	}
     	return 0;
 }
@@ -105,12 +107,12 @@ static int enter_span(MD_SPANTYPE type, void *detail, void *userdata) {
     	Tvector * tvec=(Tvector *)userdata;
     if (type == MD_SPAN_A) {
  	MD_SPAN_A_DETAIL *d = (MD_SPAN_A_DETAIL*) detail;
-    	tvec_push(tvec,LINK,(wchar_t*) d->href.text, d->href.size, 1);
+    	tvec_push(tvec,LINK,(char*) d->href.text, d->href.size, 1);
     }
-    if (type == MD_SPAN_EM) tvec_push(tvec,ITALIC,(wchar_t*) NULL, 0, 1);
-    if (type == MD_SPAN_STRONG) tvec_push(tvec,BOLD,(wchar_t*) NULL, 0, 1);
-    if (type == MD_SPAN_U) tvec_push(tvec,UNDER,(wchar_t*) NULL, 0, 1);
-    if (type == MD_SPAN_CODE) tvec_push(tvec,CODE,(wchar_t*) NULL, 0, 1);
+    if (type == MD_SPAN_EM) tvec_push(tvec,ITALIC,(char*) NULL, 0, 1);
+    if (type == MD_SPAN_STRONG) tvec_push(tvec,BOLD,(char*) NULL, 0, 1);
+    if (type == MD_SPAN_U) tvec_push(tvec,UNDER,(char*) NULL, 0, 1);
+    if (type == MD_SPAN_CODE) tvec_push(tvec,CODE,(char*) NULL, 0, 1);
 
     return 0;
 }
@@ -119,12 +121,12 @@ static int leave_span(MD_SPANTYPE type, void *detail, void *userdata) {
 
     if (type == MD_SPAN_A) {
  	MD_SPAN_A_DETAIL *d = (MD_SPAN_A_DETAIL*) detail;
-    	tvec_push(tvec,LINK,(wchar_t*) d->href.text, d->href.size, 0);
+    	tvec_push(tvec,LINK,(char*) d->href.text, d->href.size, 0);
     }
-    if (type == MD_SPAN_EM) tvec_push(tvec,ITALIC,(wchar_t*) NULL, 0, 0);
-    if (type == MD_SPAN_STRONG) tvec_push(tvec,BOLD,(wchar_t*) NULL, 0, 0);
-    if (type == MD_SPAN_U) tvec_push(tvec,UNDER,(wchar_t*) NULL, 0, 0);
-    if (type == MD_SPAN_CODE) tvec_push(tvec,CODE,(wchar_t*) NULL, 0, 0);
+    if (type == MD_SPAN_EM) tvec_push(tvec,ITALIC,(char*) NULL, 0, 0);
+    if (type == MD_SPAN_STRONG) tvec_push(tvec,BOLD,(char*) NULL, 0, 0);
+    if (type == MD_SPAN_U) tvec_push(tvec,UNDER,(char*) NULL, 0, 0);
+    if (type == MD_SPAN_CODE) tvec_push(tvec,CODE,(char*) NULL, 0, 0);
 
     return 0;
 }
@@ -132,7 +134,7 @@ static int leave_span(MD_SPANTYPE type, void *detail, void *userdata) {
 //PARSE text callbacks
 static int text(MD_TEXTTYPE type, const MD_CHAR *text, MD_SIZE size,  void *userdata) {
     	Tvector * tvec=(Tvector *)userdata;
-	tvec_push(tvec,TEXT,(wchar_t*) text,(size_t) size, 0);	
+	tvec_push(tvec,TEXT,(char*) text,(size_t) size, 0);	
 	return 0;
 }
 
@@ -176,7 +178,7 @@ int next_nl_or_text(int tokenid){
 
 }
 //initializes renderer or returns initial variables
-void render_init(wchar_t* raw, int size_raw){
+void render_init(char* raw, int size_raw){
 	Init_render * vars=get_ptr_vars();
 
 	// Md4c parcer pointers to callbacks and flags etc
@@ -195,7 +197,7 @@ void render_init(wchar_t* raw, int size_raw){
 
 	tvec_init(&(vars->tvec));
 
-	md_parse((char *)raw, size_raw, &parser, &(vars->tvec));
+	md_parse((MD_CHAR*)raw, size_raw, &parser, &(vars->tvec));
 
 	//reinitializes parsed IR
 		//gives pointer address of static var
@@ -279,7 +281,7 @@ int count_size(int token){
 
 	return total_size;
 }
-//finds the wchar_tthat beggins the line
+//finds the charthat beggins the line
 int find_line(int * token, int line){
 	Init_render* vars=get_ptr_vars();
 	int line_number=0, i, j=0, total_size=0;
@@ -379,19 +381,32 @@ void scroll_up(){
 
 }
 
-void display_msg(const wchar_t* msg, int x, int y){
+ wchar_t *makewc(const char *c)
+{
+    size_t cSize = strlen(c)+1;
+    wchar_t* wc = malloc(sizeof(wchar_t)*cSize);
+    mbstowcs (wc, c, cSize);
+
+    return wc;
+}
+void display_msg(const char* msg, int x, int y){
 	int maxx, maxy;
+	wchar_t * wmsg;
+
 	getmaxyx(stdscr, maxy, maxx);
 	// Print message at the last line
     	move(maxy-1, 0);            // move to last line
 	attrset(A_NORMAL);
     	clrtoeol();                 // clear it
     	attron(A_REVERSE);          // optional: highlight status bar
-	addwstr(msg);
+	wmsg=makewc(msg);	
+	addwstr(wmsg);
     	attroff(A_REVERSE);
 	//move back cursor
 	move(y,x);
 	refresh();
+
+	free(wmsg);
 
 
 }
@@ -409,17 +424,21 @@ void attribute_renderer(int token, unsigned int attribute){
 }
 
 
-void print_text(wchar_t *s, int size) {
-    cchar_t ch;
-    wchar_t ws; // single wide char
+void print_text(char *s, int size) {
+	char * text;
+	wchar_t * ws;
+	text=strndup(s, size);
 
-    for (int i = 0; i < size; i++) {
-        ws = (s[i] == L'\n') ? L' ' : s[i]; // replace newline with space
-        setcchar(&ch, &ws, 0, 0, NULL);    // default attr and color
-        add_wch(&ch);
+    for (char * i=text; *i; i++) {
+        if (*text =='\n' ) *text = ' ';
     }
+
+	ws=makewc(text);	
+	addwstr(ws);
+	free(text);
+	free(ws);
 }
-int render(int cursorx, int cursory, wchar_t* * link, size_t * link_size){
+int render(int cursorx, int cursory, char* * link, size_t * link_size){
 
 	int x, y,xe, ye, maxy, maxx;//screen size 
 	getmaxyx(stdscr, maxy, maxx);
@@ -511,7 +530,7 @@ int render(int cursorx, int cursory, wchar_t* * link, size_t * link_size){
 			case TEXT:
 				int current_line_token=i, chr;
 
-				wchar_t*text=tvec.tokens[i].text;
+				char*text=tvec.tokens[i].text;
 				//start rendering text only at screen_start
 				if(i < vars->screen_start)
 					break;
