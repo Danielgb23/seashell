@@ -5,7 +5,8 @@ It is  meant as a personal project to explore text rendering, parsing, and termi
 Perhaps I evolve it into a sort of shell/envirnoment rendered from markdown files to execute lua scripts and explore rendering images 
 in terminal emulators like kitty.
 
-<img width="768" height="507" alt="image" src="https://github.com/user-attachments/assets/c2444abd-5492-4d34-b1c8-d73d9f47d3c2" />
+<img width="539" height="285" alt="image" src="https://github.com/user-attachments/assets/ecc328c3-b180-426f-862b-5ae4908dd968" />
+
 
 
 ## Features
