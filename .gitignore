@@ -1,11 +1,5 @@
-CMakeFiles/*
-cmake_install.cmake
-Makefile
-CMakeCache.txt
-
+build/*
 tags
 
-libRender.a
-libMd4c.a
 
 Seashell

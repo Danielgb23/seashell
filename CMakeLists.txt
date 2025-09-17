@@ -36,16 +36,17 @@ add_library(Render src/render.c include/render.h)
 # Adding something we can run - Output name matches target name
 add_executable(Seashell src/seashell.c)
 
-# Make sure you link your targets with this command. It can also link libraries and
-# even flags, so linking a target that does not exist will not give a configure-time error.
-target_link_libraries(Render PRIVATE Md4c )
-target_link_libraries(Seashell PRIVATE Render )
-
 # Find ncurses library
 find_package(Curses REQUIRED)
-target_include_directories(Seashell PRIVATE ${CURSES_INCLUDE_DIR})
-target_link_libraries(Render PRIVATE ${CURSES_LIBRARIES})
-target_link_libraries(Seashell PRIVATE ${CURSES_LIBRARIES})
+
+target_include_directories(Render  PRIVATE "/usr/include/ncursesw")
+target_include_directories(Seashell PRIVATE "/usr/include/ncursesw")
+
+# Make sure you link your targets with this command. It can also link libraries and
+# even flags, so linking a target that does not exist will not give a configure-time error.
+target_link_libraries(Render PRIVATE Md4c PRIVATE  ncursesw)
+target_link_libraries(Seashell PRIVATE Render PRIVATE  ncursesw)
+
 ## [main]
 
 # This part is so the Modern CMake book can verify this example builds. For your code,

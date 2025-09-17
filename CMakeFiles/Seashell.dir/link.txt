@@ -1,0 +1,1 @@
+/usr/bin/cc -g -Wl,--dependency-file=CMakeFiles/Seashell.dir/link.d CMakeFiles/Seashell.dir/src/seashell.c.o -o Seashell  libRender.a -lncursesw libMd4c.a

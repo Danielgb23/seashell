@@ -1,26 +1,22 @@
 # include <sys/stat.h>
-
-# include <stdio.h>
-# include <stdlib.h>
-# include <string.h>
-
 # include "render.h"
+# include <string.h>
+#include <locale.h>
 
-#include <ncurses.h>
 //###################################################################################################
 //Read files
 #define MAX_FILE_SIZE (256 * 1024 * 1024)  // 256 MB
-FILE * file_open(const char *filename){
+FILE * file_open(const wchar_t *filename){
 	// open file
 	FILE* fp;
-	fp=fopen(filename, "r");
+	fp=fopen((char*)filename, "r , ccs=UTF-8");
 	if (fp == NULL) {
 	    //perror("no such file.");
 	    return NULL;
 	}
 	// File size limit
 	struct stat st;
-    	if (stat(filename, &st) != 0) return 0;
+    	if (stat((char*)filename, &st) != 0) return 0;
 
     	if (st.st_size > MAX_FILE_SIZE) {
         fprintf(stderr, "File too large (%ld bytes)\n", st.st_size);
@@ -30,7 +26,7 @@ FILE * file_open(const char *filename){
 }
 
 
-int read_file(FILE*  fp, char * * out){
+int read_file(FILE*  fp, wchar_t * * out){
 	if(!fp){
 		return 0;
 	}		
@@ -39,7 +35,7 @@ int read_file(FILE*  fp, char * * out){
 	long size = ftell(fp);
 	rewind(fp);
 	//allocate memory
-	char *buffer = malloc (size + 1);
+	wchar_t *buffer = malloc (sizeof(wchar_t)*(size + 1));
 	if (!buffer) {
        		 perror("Can't allocate memory for file");
         	fclose(fp);
@@ -54,11 +50,11 @@ int read_file(FILE*  fp, char * * out){
 	return size;
 }
 
-char *strndup(const char *s, size_t n) {
+wchar_t *wstrndup( wchar_t *s, size_t n) {
     size_t len = 0;
     while (s[len] && len < n) len++;   // determine actual length to copy
 
-    char *copy = malloc(len + 1);
+    wchar_t *copy = malloc(sizeof(wchar_t)*(len + 1));
     if (!copy) return NULL;
 
     for (size_t i = 0; i < len; i++)
@@ -69,25 +65,27 @@ char *strndup(const char *s, size_t n) {
 }
 //MAIN #############################################################################################
 # define FILE_TAG "file://"
-int prefix(const char *pre, const char *str)
+int prefix(const wchar_t *pre, const wchar_t *str)
 {
-    return strncmp(pre, str, strlen(pre)) == 0;
+    return wcscmp(pre, str) == 0;
 }
 
 int main(int argc, const char * argv[]){
+
+	setlocale(LC_ALL, "C.UTF-8");
 	// raw markdown
-	char * raw=NULL; //raw text saved in memory
+	wchar_t * raw=NULL; //raw text saved in memory
 	int size_raw;
 
 	
 
 
 	//char * previous_path;
-	char * previous=NULL;//path of previous file
+	wchar_t * previous=NULL;//path of previous file
 				   //
 	int ch; //ncurses char
 	int x = 0, y = 0;  // cursor position
-	char * link=NULL ,* link_str; //current link under the cursor
+	wchar_t * link=NULL ,* link_str; //current link under the cursor
 	size_t link_size=0; //current link under the cursor
 	int fail;// flags
 	int maxy, maxx;//screen size 
@@ -102,8 +100,8 @@ int main(int argc, const char * argv[]){
 	}
 
 	// Read file to memory
-	previous=(char*)argv[1];
-	FILE * fp = file_open(argv[1]);	
+	previous=(wchar_t*)argv[1];
+	FILE * fp = file_open((wchar_t *)argv[1]);	
 	size_raw = read_file(fp, &raw);
 	if(size_raw == 0){
 		printf("No data in file or file non existant\n");
@@ -111,7 +109,6 @@ int main(int argc, const char * argv[]){
 	}
 
 							
-
 
 
 	initscr();              // Start ncurses
@@ -191,10 +188,10 @@ int main(int argc, const char * argv[]){
 				
 				if(link != NULL ){
 
-					link_str=strndup(link,link_size);
+					link_str=wstrndup(link,link_size);
 
 					//file type of link
-					if(prefix(FILE_TAG, link_str)){
+					if(prefix((wchar_t*) FILE_TAG, link_str)){
 						//trim string
 						size_t l = strlen(FILE_TAG);
 						// Read file to memory
@@ -218,7 +215,7 @@ int main(int argc, const char * argv[]){
 					free(link_str);
 
 					if(fail){
-						display_msg("File unavailable or empty.", x, y);
+						display_msg((const wchar_t *)"File unavailable or empty.", x, y);
 						napms(800);
 					}
 					}
@@ -234,7 +231,7 @@ int main(int argc, const char * argv[]){
 
 		// Print link at the last line
 	   	if(link != NULL){
-			link_str=strndup(link, link_size);
+			link_str=wstrndup(link, link_size);
 			display_msg(link_str, x, y);
 			free(link_str);
 							     

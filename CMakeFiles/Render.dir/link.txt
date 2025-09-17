@@ -1,0 +1,2 @@
+/usr/bin/ar qc libRender.a CMakeFiles/Render.dir/src/render.c.o
+/usr/bin/ranlib libRender.a

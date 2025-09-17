@@ -1,18 +1,24 @@
 # include <stdio.h>
 # include <stdlib.h>
-# include <string.h>
 
-# include "md4c.h"
+#include <wchar.h>
 
-int render(int cursorx, int cursory, char * * link, size_t * link_size);
+#ifndef _UNICODE
+#define _UNICODE
+#endif
+
+#define _XOPEN_SOURCE_EXTENDED
+# include <curses.h>
+
+int render(int cursorx, int cursory, wchar_t * * link, size_t * link_size);
 
 void scroll_down();
 void scroll_up();
 int get_last_in_screen();
 int get_first_in_screen();
 
-void display_msg(const char* msg, int x, int y);
+void display_msg(const wchar_t* msg, int x, int y);
 
 void destroy_renderer();
 
-void render_init(char* raw, int size_raw);
+void render_init(wchar_t* raw, int size_raw);
